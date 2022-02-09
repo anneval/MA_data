@@ -18,26 +18,48 @@ library(trendecon)
 #trendecon::proc_trendecon_at()
 setwd("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT")
 
-keywords <- c("Wirtschaftskrise", "Kurzarbeit", "arbeitslos", "Insolvenz")
+keyword <- c("Wirtschaftskrise", "Kurzarbeit", "arbeitslos") #Insolvenz
 
 # only run once!
 proc_keyword_init("Wirtschaftskrise","AT")
 proc_keyword_init("Kurzarbeit","AT")#recruitment, mortgage
 proc_keyword_init("arbeitslos","AT")
-proc_keyword_init("Insolvenz","AT")#bankruptcy
+#DO TOMORROW!
+  proc_keyword_init("Insolvenz","AT")#bankruptcy
 proc_keyword_init("Inflation","AT") #??? Preisanstieg, Energiepreise
 #recession , ‘economic reforms’, and ‘debt stabilization’.
 
+# also do as robustness check different words!
 
 #Keywords: What makes Google Trends a powerful tool for economic predictions is its coverage of a large number of aspects of economic activity. Data about search behaviour can be informative about consumption (e.g. related to searches for “vehicles”, “households appliances”), labour markets (e.g.“recruitment”), housing (e.g. “real estate agency”, “mortgage”), business services (e.g.“venture capital”, “bankruptcy”), industrial activity (e.g. “maritime transport”, “agricultural equipment”) as well as economic sentiment (e.g. “recession”) and poverty (e.g. “food bank”). Signals about multiple facets of the economy can be aggregated to infer a timely picture of the macro economy.(OECD PAPER)
 ## ADD to Robustness:
 #Reasons I stayed with keywords instead of topic/ category search - computational issues if consider Sampling problem porperly!!! OECD: the algorithm (a “neural network”) extracts relevant information from 250 Google Trends variables, that each aggregate information about searches by Google users for thousands a keywords
 ```
 
+```{r}
+ geo ="AT"
+path_trendecon("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT/raw")
+path_raw("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT/raw")
+path_keyword("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT/raw")
+lapply(keywords, proc_keyword) # do stepwise? 
+proc_keyword("Wirtschaftskrise","AT")
+
+# OR STEPWISE
+getwd()
+
+files_indicator <- grep(keyword,
+                          list.files(path_raw(tolower(geo))),
+                          value = TRUE,
+                          fixed = TRUE)
+
+files_indicator_raw <- grep(keyword,
+                              list.files(path_draws(tolower(geo))),
+                              value = TRUE,
+                              fixed = TRUE)
+```
 
 ```{r}
 
 data <- read_keywords(keywords,geo = "AT", id = "seas_adj")
-lapply(keywords, proc_keyword) # do stepwise? 
 ```
 
