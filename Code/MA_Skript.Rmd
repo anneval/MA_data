@@ -25,6 +25,7 @@ proc_keyword_init("Wirtschaftskrise","AT")
 proc_keyword_init("Kurzarbeit","AT")#recruitment, mortgage
 proc_keyword_init("arbeitslos","AT")
 #DO TOMORROW!
+
   proc_keyword_init("Insolvenz","AT")#bankruptcy
 proc_keyword_init("Inflation","AT") #??? Preisanstieg, Energiepreise
 #recession , ‘economic reforms’, and ‘debt stabilization’.
@@ -37,16 +38,18 @@ proc_keyword_init("Inflation","AT") #??? Preisanstieg, Energiepreise
 ```
 
 ```{r}
- geo ="AT"
-path_trendecon("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT/raw")
-path_raw("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT/raw")
-path_keyword("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT/raw")
+geo ="AT"
+options(path_trendecon = "~/path/to/base/dir")
+options(path_raw = "~/raw")
+
+#proc_keyword_latest("arbeitslos","At")
+
 lapply(keywords, proc_keyword) # do stepwise? 
-proc_keyword("Wirtschaftskrise","AT")
+proc_keyword("arbeitslos","AT")
 
 # OR STEPWISE
 getwd()
-
+setwd("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT")
 files_indicator <- grep(keyword,
                           list.files(path_raw(tolower(geo))),
                           value = TRUE,
