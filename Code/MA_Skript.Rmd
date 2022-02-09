@@ -11,9 +11,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(trendecon)
+library(tidyverse)
+library(tsbox)
+
+```
+
+
+```{r}
+
 #setwd("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT")
 
-keyword <- c("Wirtschaftskrise", "Kurzarbeit", "arbeitslos") #Insolvenz
+keywords <- c("Wirtschaftskrise", "Kurzarbeit", "arbeitslos") #Insolvenz
 geo ="AT"
 
 # only run once!
@@ -34,19 +42,56 @@ proc_keyword_init("Inflation","AT") #??? Preisanstieg, Energiepreise
 
 ```{r}
 #lapply(keywords, proc_keyword) # do stepwise? 
-
 # Includes the followign functions: proc_keyword_latest,proc_combine_freq, proc_seas_adj
 proc_keyword("arbeitslos","AT")
 proc_keyword("Wirtschaftskrise","AT")
 proc_keyword("Kurzarbeit","AT")
-proc_keyword("Insolvenz","AT")
+#proc_keyword("Insolvenz","AT")
 ```
 
 ```{r}
+
+proc_index()
 # read in all data series from the last step (seas. adjust)
 data <- read_keywords(keywords,geo = "AT", id = "seas_adj")
 # Combine the adjusted key word series to one overall sentinment series using PCA!
+  # make sure all keywords have the same span
+data <- data %>%
+    filter(time <= min(ts_summary(data)$end))
 
+x_prcomp <- filter(ts_prcomp(data), id == "PC1") %>%
+    select(-id) %>%
+    ts_scale()
 
+# determine PC sign based on average correlation with actual time series
+values  <- mapply(getElement, split(data, data$keyword), "value")
+corsign <- mean(cor(values, x_prcomp$value))
+
+if(corsign < 0) {
+    x_prcomp$value <- -x_prcomp$value
+}
+
+x_prcomp$value <- -x_prcomp$value
+
+# Final Index
+write_keyword(x_prcomp, geo, "sa")
+ts.plot(x_prcomp$value)
+
+```
+# Daily updates
+
+```{r}
+#1-create a variable holding the set of keywords used for the series:
+kw_econsent <- c(
+  "Wirtschaftskrise",
+  "Kurzarbeit",
+  "arbeitslos"
+)
+
+proc_index(kw_econsent, "AT", "econsent")
+
+indices_in_production <- c(
+  "econsent"
+)
 ```
 
