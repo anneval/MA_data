@@ -11,22 +11,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(trendecon)
-#remotes::install_local("gtrendecon")   # build the package, only do once
-#gtrendecon::proc_all()
-
-#trendecon::proc_all("https://github.com/anneval/MA")
-#trendecon::proc_trendecon_at()
-setwd("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT")
+#setwd("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT")
 
 keyword <- c("Wirtschaftskrise", "Kurzarbeit", "arbeitslos") #Insolvenz
+geo ="AT"
 
 # only run once!
 proc_keyword_init("Wirtschaftskrise","AT")
 proc_keyword_init("Kurzarbeit","AT")#recruitment, mortgage
 proc_keyword_init("arbeitslos","AT")
 #DO TOMORROW!
-
-  proc_keyword_init("Insolvenz","AT")#bankruptcy
+proc_keyword_init("Insolvenz","AT")#bankruptcy
 proc_keyword_init("Inflation","AT") #??? Preisanstieg, Energiepreise
 #recession , ‘economic reforms’, and ‘debt stabilization’.
 
@@ -38,31 +33,20 @@ proc_keyword_init("Inflation","AT") #??? Preisanstieg, Energiepreise
 ```
 
 ```{r}
-geo ="AT"
-options(path_trendecon = "~/path/to/base/dir")
-options(path_raw = "~/raw")
+#lapply(keywords, proc_keyword) # do stepwise? 
 
-#proc_keyword_latest("arbeitslos","At")
-
-lapply(keywords, proc_keyword) # do stepwise? 
+# Includes the followign functions: proc_keyword_latest,proc_combine_freq, proc_seas_adj
 proc_keyword("arbeitslos","AT")
-
-# OR STEPWISE
-getwd()
-setwd("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT")
-files_indicator <- grep(keyword,
-                          list.files(path_raw(tolower(geo))),
-                          value = TRUE,
-                          fixed = TRUE)
-
-files_indicator_raw <- grep(keyword,
-                              list.files(path_draws(tolower(geo))),
-                              value = TRUE,
-                              fixed = TRUE)
+proc_keyword("Wirtschaftskrise","AT")
+proc_keyword("Kurzarbeit","AT")
+proc_keyword("Insolvenz","AT")
 ```
 
 ```{r}
-
+# read in all data series from the last step (seas. adjust)
 data <- read_keywords(keywords,geo = "AT", id = "seas_adj")
+# Combine the adjusted key word series to one overall sentinment series using PCA!
+
+
 ```
 
