@@ -1,0 +1,886 @@
+---
+title: "MA_DAILY_CATEGORIES_INDICATOR"
+author: "Anne Valder"
+date: "7/18/2021"
+output: html_document
+---
+
+- instead of Midas, take last day, last week, last moth , q etc...
+- use exponentially weighting average..
+
+      PLS and LASSO hier mit categories 
+      
+     - Alles schließen schauen welche Functions oder als Environment speichern..
+      frequenzen der Daten check am Ende!!! (daily wirklich)ja!
+      
+     -  hourly fehlt.. 
+     
+     - downturn at the beginnign why ????
+     
+
+Differences to A) TrendEcon:
+ 
+- statt keywords categories nehmen und daraus Indikator (echtzeit) - done 
+- statt nur PCA noch PLS und Lasso/ Ridge dazu1!!
+
+Differences to B) Heik./Knetsch/ Götz
+
+- Nur broad categories! und daraus einen Indikator
+- gesampelte Daten (12 draws and average)
+- Prophet procedure for seasonal adjustment oder X12 Arima? (monatliche/tägliche Daten)
+ Q: moving window ???
+      
+```{r, include=FALSE}
+
+#rm(list=ls())
+library(readr)
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(Metrics)
+library(gtrendsR)
+library(tsbox)
+#library(zoo)
+library(tseries)
+library(tempdisagg)
+library(trendecon)
+library(pls)
+library(prophet)
+library(glmnet)
+ 
+```
+
+### Functions needed: 
+```{r}
+
+
+path_trendecon <- function(...) {
+  base <- getOption("path_trendecon", default = normalizePath("."))
+  fs::path(base, ...)
+}
+
+
+path_raw <- function(...) {
+  path_trendecon("raw", ...)
+}
+
+
+path_category_d <- function(category, geo = "AT", suffix = "d") {
+  normalizePath(path_raw(tolower(geo), paste0(category, "_", suffix, ".csv")), mustWork = FALSE)
+}
+
+
+read_category <- function(category, geo = "AT", suffix = "d") {
+  readr::read_csv(path_category_d(category, geo, suffix), col_types = cols())
+}
+
+
+path_mwd <- function(category, geo = "AT", suffix = "mwd") {
+  normalizePath(path_raw(tolower(geo), paste0(category, "_", suffix, ".csv")), mustWork = FALSE)
+}
+
+
+read_mwd <- function(category, geo = "AT", suffix = "mwd") {
+  readr::read_csv(path_mwd(category, geo, suffix), col_types = cols())
+}
+
+read_categories <- function(category, geo = "AT", suffix = "sa", id = NULL) {
+  read_category_one <- function(category) {
+    ans <-
+      read_category(category, geo = geo, suffix = suffix) %>%
+      mutate(category = category) %>%
+      select(category, id, time, value)
+
+    if (!is.null(id)) {
+      ans <- filter(ans, id == !!id) %>%
+        select(-id)
+   }
+    ans
+  }
+  bind_rows(lapply(category, read_category_one))
+}
+```
+
+### Initial data (DO NOT RUN) - Loop not possible since Google blocks IP.. als loop schreiben das ich nur categories oben einmal ändern muss..
+
+```{r}
+
+data('categories') 
+categories
+category <- c(47,958,5, 71,7,45,29,13,16, 67, 44, 20, 12, 11, 19, 18) # 
+
+categories2 <- categories  %>% filter(id %in% c(47,958,5, 71,7,45,29,13,16, 67, 44, 20, 12, 11, 19, 18))
+
+ category = "29"
+ geo ="AT"
+
+d_29 <- ts_gtrends_windows(
+    category = 29,
+    geo = geo,
+     from = from,
+    stepsize = "15 days", 
+    windowsize = "6 months",
+    n_windows = 412, wait = 20, 
+    retry = 10,
+    prevent_window_shrinkage = TRUE)
+
+suffix = "d"
+ path <- path_keyword(category, geo, suffix)
+ path
+  write_csv(d_29, path)
+
+ w_29 <- ts_gtrends_windows(
+    category = 29,
+    geo = geo,
+    from = from, stepsize = "11 weeks", windowsize = "5 years",
+    n_windows = 68, wait = 20, retry = 10,
+    prevent_window_shrinkage = TRUE
+  )
+ 
+suffix = "w"
+ path <- path_keyword(category, geo, suffix)
+ path
+write_csv(w_29, path)
+ 
+  m_29 <- ts_gtrends_windows(
+    category = 29,
+    geo = geo,
+    from = from, stepsize = "1 month", windowsize = "15 years",
+    n_windows = 12, wait = 20, retry = 10,
+    prevent_window_shrinkage = FALSE
+  )
+  
+suffix = "m"
+ path <- path_keyword(category, geo, suffix)
+ path
+write_csv(m_29, path)
+  
+    h <- gtrends(
+    category = 29,
+    geo = geo,
+    time = "now 7-d",
+  )
+  
+  h_29 <- h$interest_over_time
+  h_29 <- h_29[, 1:2]
+ colnames(h_29)[colnames(h_29) %in% c("date", "hits")] <- c("time", "value")
+
+  h_29 <- h_29 %>%
+    group_by(time) %>%
+    summarize(value = mean(value, na.rm=TRUE)) %>%
+    mutate(n = 1)
+  
+  suffix = "h"
+  path <- path_keyword(category, geo, suffix)
+  path
+  write_csv(h_29, path)
+  
+```
+
+
+#### First indicators which get updated daily later on with proc_latest (which used read_keyword/category with suffix "sa")
+
+figure out why hourly does not work.. code should be alright.. 
+(ok if not added but would be nice)
+
+do for all categories new bc of error !!!! and also SA!!! 
+
+entweder wie hier mit ts_gtrends_mwd (latest & agg combined) ODER proc latest mit enhance fct und dann proccomfrequen.
+
+```{r}
+
+####### Stop before RUN ####
+
+#category <- c(47,958,5, 71,7,45,29,13,16, 67,44, 20, 12, 11, 19, 18) # BESSER IN KLEINEREN BLÖCKEN 
+category <- c(11, 19, 18)
+
+
+geo ="AT"
+from = "2006-01-01"
+
+
+for (i in category){
+
+  #  h <- gtrends(
+ #   category = i,
+  #  geo = geo,
+  #  time = "now 7-d"
+ # )
+  
+  #h <- h$interest_over_time
+  #h <- h[, 1:2]
+ #olnames(h)[colnames(h) %in% c("date", "hits")] <- c("time", "value")
+ 
+#  h <- h %>%
+#    group_by(time) %>%
+#    summarize(value = mean(value, na.rm=TRUE)) %>%
+#    mutate(n = 1)
+  
+  # NOTE: this data is intentionally not re-written on every update, not aggregated with the rest
+
+
+    d_2 <- ts_gtrends_windows(category =i,
+    geo = geo,
+    from = seq(Sys.Date(), length.out = 2, by = "-90 days")[2],
+    stepsize = "1 day", windowsize = "3 months",
+    n_windows = 12, wait = 20, retry = 10,
+    prevent_window_shrinkage = FALSE
+  )
+  
+  w_2 <- ts_gtrends_windows(
+    category =i,
+    geo = geo,
+    from = seq(Sys.Date(), length.out = 2, by = "-1 year")[2],
+    stepsize = "1 week", windowsize = "1 year",
+    n_windows = 12, wait = 20, retry = 10,
+    prevent_window_shrinkage = FALSE
+  )
+  
+  m_2 <- ts_gtrends_windows(
+    category = i,
+    geo = geo,
+    from = from,
+    stepsize = "1 month", windowsize = "20 years",
+    n_windows = 12, wait = 20, retry = 10,
+    prevent_window_shrinkage = FALSE
+  ) 
+    
+  d <- read_category(category = i, geo=geo, suffix="d")
+  w <- read_category(category = i, geo=geo, suffix="w") 
+  m <- read_category(category = i, geo=geo, suffix="m") 
+  
+    dd <- aggregate_averages(aggregate_windows(d), aggregate_windows(d_2))
+    ww <- aggregate_averages(aggregate_windows(w), aggregate_windows(w_2))
+    mm <- aggregate_averages(aggregate_windows(m), aggregate_windows(m_2))
+    
+  dd <- select(dd,-n) # 5713
+  ww <- select(ww, -n)
+  mm <- select(mm, -n)  
+  #h <- select(h,-n)
+ 
+
+  # message("extend daily data by hourly data for the missing recent days")
+  #dh <- inner_join(dd, h, by="time", suffix=c(".dd", ".h"))
+ # h <- h %>%
+   # mutate(value = value * mean(dh$value.dd) / mean(dh$value.h)) %>%
+   # mutate(value = if_else(value > 100, 100, value)) %>%
+   # filter(time > max(dd$time))
+ # dd <- rbind(dd, h)
+
+  ####
+  wd <- tempdisagg::td(ww ~ dd, method = "fast", conversion = "mean") # does not work when I add the hourly data since then i have seveal entries for 19/08 - 26/08... 
+  wd <- predict(wd)
+    
+  mwd <- tempdisagg::td(mm ~ wd, method = "fast", conversion = "mean")
+  mwd <- predict(mwd)
+
+  path <- path_mwd(category = i, geo = geo, suffix = "mwd")
+  path
+  write_csv(mwd, path)
+    
+}
+
+```
+
+### SEASONAL ADJUSTMENT LOOP
+
+mwd noch vollständig!
+
+```{r}
+category <- c(47,958,5, 71,7,45,29,13,16, 67, 44, 20, 12, 11, 19, 18) # BESSER IN KLEINEREN BLÖCKEN 
+
+category <- c(11, 19, 18)
+
+tsbox::load_suggested("prophet")
+#category <- c(47,958,5, 71,7,45,29,13,16, 67, 44, 20, 12, 11, 19, 18) # SAME AS BEFORE ALS MAIN CATEGORIES
+  generated_holidays <- prophet::generated_holidays
+  assign("generated_holidays", prophet::generated_holidays, envir = globalenv())
+  
+
+  ### jede kategories einzeln durchgehen und dann schauen wo der feheler ist?? welche 2007 cutten.. 
+  
+for (i in category){
+  
+  mwd <- read_category(category = i, suffix="mwd")
+  mwd$time <- as.Date(mwd$time, "%d%m%Y")
+  
+  
+  df <- dplyr::rename(mwd, ds = time, y = value)
+
+  m <-
+    # prophet(holidays = holidays, daily.seasonality = FALSE) %>%
+    prophet::prophet(daily.seasonality = FALSE) %>%
+    prophet::add_country_holidays(country_name = toupper(geo)) %>%
+    prophet::fit.prophet(df)
+  
+    z <- predict(m)
+
+ #FEHLER HIER !!!!! wahrscheinlichbei JOIN?? oder muttate stepwise durchgehen !problem bei alllen? ts??
+    
+    
+    mwd_sa <-
+    z %>%
+    transmute(time = as.Date(ds), trend, seas_comp = additive_terms) %>% # additive_terms = yhat - trend,
+    left_join(mwd, by = "time") %>%
+    rename(orig = value) %>%
+    mutate(seas_adj = orig - seas_comp) %>%
+    ts_long()
+  
+  
+  mwd_sa <-
+    mwd_sa %>% filter(id == "seas_adj")
+  
+  
+  path <- path_mwd(category = i, geo, suffix ="mwd_sa" )
+  path
+  write_csv(mwd_sa, path)
+}
+
+```
+
+### PCA - does not work for weekly data... only if I convert to monthly.. (differnt values for weekly data???)
+
+```{r}
+
+
+  
+category <- c(47,958, 71,7,45,29,13,16, 67, 44, 20, 12, 11, 19, 18)
+data_all <- NULL
+
+for (i in category){
+data_pca <- read_categories(category = i, geo = geo, suffix = "mwd_sa", id = "seas_adj")
+data_all <- rbind(data_all, data_pca)
+}
+
+#adf.test(data_all$value)
+data_all <- unique(data_all)
+
+data_all_test <- filter(data_all, category == "Travel")
+ts_plot(data_all_test)
+
+
+data_all_2011 <- data_all_2011[,]
+data_all_2011 <- filter(data_all, time >= as.Date("2010-01-01"), time <= as.Date("2021-12-31"))
+
+data_all_2011_test <- filter(data_all_2011, category == "Travel")
+ts_plot(data_all_2011_test)
+#adf.test(X11_mwd_sa$value)
+#adf.test(X11_mwd_sa$value)
+#adf.test(X958_mwd_sa$value)
+#adfTest(X67_mwd_sa$value)
+#adfTest(X11_mwd_sa$value)
+#adfTest(X958_mwd_sa$value)
+
+#t#s.plot(X958_mwd_sa$value)
+# tsbox::ts_plot(X958_mwd_sa, title = "Austria")
+############?????????????########
+#data_all <- data_all %>% filter(time !="2021-08-07")
+# make sure all keywords have the same span
+data_all <- data_all %>%
+    filter(time <= min(ts_summary(data_all)$end))
+data_all <- as.data.frame(data_all)
+
+adf.test(data_all$value)
+
+
+
+y = 50*((1/0.05) - 1/(0.05*(1+0.05)^5)) + 1000/(1.05^5)
+
+
+
+#######
+
+categories2 <- categories  %>% filter(id %in% c(47,958, 71,7,45,29,13,16, 67, 44, 20, 12, 11, 19, 18))
+
+colnames(categories2)[colnames(categories2) %in% c("name", "id")] <- c("name", "category")
+
+data_all$category <- as.integer(data_all$category)
+categories2$category <- as.integer(categories2$category)
+
+data_all <- left_join(data_all, categories2, by="category")
+data_all <- data_all[,-1]
+
+#new_y_ts <- ts(new_y,frequency = 12, start = c(2006,1), end = c(2021,7))
+
+#col_order <- c("name", "date", "hits"
+               #)
+#new_y <- new_y[, col_order]
+#new_y <- new_y[25:5486,]   # monthly data here !!!!
+
+colnames(data_all)[colnames(data_all) %in% c("time", "value","name")] <- c("time", "value", "category")
+#new_y<-  drop_na(new_y)
+#c <- new_y %>% 
+#as_tibble(new_y)%>%
+
+
+col_order <- c("category", "time", "value"
+               )
+data_all <- data_all[, col_order]
+
+
+#new_y$value <- as.numeric(new_y$value)
+data_all$time <- as.Date(data_all$time)
+data_all$value <- as.numeric(data_all$value)
+sapply(data_all, class)
+
+smry_y <- ts_summary(data_all)
+smry_y
+
+
+data_wide <- data_all %>%
+    pivot_wider(
+      
+      # from which variable should the new column names be taken from
+      names_from = category, 
+      
+      # from which variable should the values be taken from
+      values_from = value)
+
+#### Check for stationarity in each google series
+
+for (i in 2:ncol(data_wide)) {
+    print(colnames(data_wide)[i])
+    print(adf.test(data_wide[[i]]))}
+  
+#not stationary: 
+
+#Autos & Vehicles" - 0.025
+# "Computers & Electronics" - 0.3344
+# "Travel"  0.09102
+# "Home & Garden" 0.01558
+# "Shopping"
+
+### take first differeneces 
+
+diffAV <- diff(data_wide$`Autos & Vehicles`)
+adf.test(diffAV) # stationary
+
+diffCE <- diff(data_wide$`Computers & Electronics`)
+adf.test(diffCE) # stationary
+
+diffT <- diff(data_wide$Travel)
+adf.test(diffT) # stationary
+
+diffHG <- diff(data_wide$`Home & Garden`)
+adf.test(diffHG) # stationary
+
+diffS <- diff(data_wide$Shopping)
+adf.test(diffS) # stationary
+
+data_wide_diff <- cbind(diffAV,diffCE, diffT, diffHG, diffS)
+data_wide_diff <- as.data.frame(data_wide_diff)
+
+data_wide_diff <- cbind(data_wide[2:5758,1],data_wide_diff)
+
+data <- left_join(data_wide,data_wide_diff,by= "time")
+data <- data[,-c(2,4,11,15,17)]
+# ----> put into dataframe!
+
+#### Normalize data  
+data_all <- data_all %>%
+  mutate(scaled = scale(data_all$value))
+
+
+colMeans(data_all$scaled)  # faster version of apply(scaled.dat, 2, mean)
+apply(data_all$scaled, 2, sd)
+
+
+scaled.data_wide <- scale(data_all$value)
+colMeans(scaled.data_wide)  # faster version of apply(scaled.dat, 2, mean)
+apply(scaled.data_wide, 2, sd)
+
+scaled.data_wide <- data %>% mutate_at(c("y", "z"), ~(scale(.) %>% as.vector))
+dat2
+
+data_long <- data_wide %>% 
+  pivot_longer(
+               # select which columns should be pivoted
+               cols = c(data_wide$`Autos & Vehicles`, data_wide$`Jobs & Education`, data_wide$`Computers & Electronics`,data_wide$`Food & Drink`,data_wide$Finance, data_wide$Health, data_wide$`Real Estate`, data_wide$`Internet & Telecom`, data_wide$News, data_wide$Travel,data_wide$`Beauty & Fitness`, data_wide$Sports, data_wide$`Business & Industrial`,data_wide$`Home & Garden`, data_wide$`Law & Government`, data_wide$Shopping), 
+               
+               # how should the variable for the cols be named?
+               names_to = "category", 
+               
+               # how should the variable for the cells of the matrix be named?
+               values_to = "value")
+# from wide wider into long transformation!
+
+##### PCA
+
+stopifnot(nrow(dplyr::distinct(smry_y, start, end)) == 1)
+prcomp_daily <- ts_prcomp(data_all)
+summary(prcomp_daily)
+
+#data_all_2011
+prcomp_daily <- ts_prcomp(data_all_2011)
+
+prcomp_daily <- filter(ts_prcomp(data_all_2011), id == "PC1") %>%
+  mutate(value = -value) %>%
+  select(-id) %>%
+    ts_scale()
+ts_plot(prcomp_daily)
+
+
+cor(data_wide[,-1])
+
+prcomp_daily <- filter(ts_prcomp(data_all), id == "PC1") %>%
+  mutate(value = -value) %>%
+  select(-id) %>%
+    ts_scale()
+summary(prcomp_daily)
+
+  values  <- mapply(getElement, split(data_all, data_all$category), "value")
+  values
+  corsign <- mean(cor(values, prcomp_daily$value))
+  corsign
+  
+  if(corsign < 0) {
+    prcomp_daily$value <- -prcomp_daily$value
+  }
+  
+  path <- path_mwd(geo, suffix ="INDEX_daily" )
+  path
+  write_csv(prcomp_daily, path)
+ 
+ts_plot(prcomp_daily)
+str(prcomp_daily)
+#data_all$value <- round(data_all$value)
+```
+
+
+```{r}
+###################  AGGG TO MONTHLY DATA!!!!! oder nicht wenn MIDAS
+library(zoo)
+data_all <- arrange(data_all, time)
+data_all$mdate <- as.yearmon(data_all$time)
+
+data_all_mtly <- data_all %>% group_by(mdate,category) %>%
+  summarise_all(mean)
+
+data_all_mtly <- data_all_mtly[,-1]
+
+data_all_mtly$time <- format(as.Date(data_all_mtly$time), "%Y-%m")
+
+
+data_all$qdate <- as.yearqtr(data_all$time)
+data_all_qterly <- data_all %>% group_by(qdate,category) %>%
+  summarise_all(mean)
+data_all_qterly <- data_all_qterly[,-1]
+data_all_qterly$time <- format(as.Date(data_all_qterly$time), "%Y-%m")
+data_all_qterly <- data_all_qterly[,-4]
+
+
+
+data_wide_qterly <- data_all_qterly %>%
+    pivot_wider(
+      
+      # from which variable should the new column names be taken from
+      names_from = category, 
+      
+      # from which variable should the values be taken from
+      values_from = value)
+
+####################################
+smry_y <- ts_summary(data_all_mtly)
+smry_y
+
+stopifnot(nrow(dplyr::distinct(smry_y, start, end)) == 1)
+
+x_prcomp_mtly <- ts_prcomp(data_all_mtly)
+view(x_prcomp_mtly)
+x_prcomp_mtly <- filter(ts_prcomp(data_all_mtly), id == "PC1") %>%
+    select(-id) %>%
+    ts_scale()
+
+  values  <- mapply(getElement, split(data_all_mtly, data_all_mtly$category), "value")
+  values
+  corsign <- mean(cor(values, x_prcomp_mtly$value))
+  corsign
+  
+  if(corsign < 0) {
+    x_prcomp_mtly$value <- -x_prcomp_mtly$value
+  }
+  
+  path <- path_mwd(geo, suffix ="INDEX" )
+  path
+  write_csv(x_prcomp_mtly, path)
+ 
+ ts.plot(x_prcomp_mtly$value)
+ tsbox::ts_plot(prcomp_daily, title = "Austria")
+prcomp_daily <- prcomp_daily[1827:5713,]
+
+####################
+
+```
+
+```{r}
+mtcars.pca <- prcomp(mtcars[,c(1:7,10,11)], center = TRUE,scale. = TRUE)
+summary(mtcars.pca)
+mtcars
+```
+
+OLS ALL CAT !!!
+
+# CV, RIDGE UND LASSO FROM START 
+### (https://www.pluralsight.com/guides/linear-lasso-and-ridge-regression-with-r)
+##### Linear Model with categories - Averaged data 
+###### evaluation
+```{r}
+# Compute R^2 from true and predicted values
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+  # Model performance metrics
+data.frame(
+  RMSE = RMSE,
+  Rsquare = R_square)}
+```
+
+####### Data as averages!
+Data preperation: 
+```{r}
+
+#data_wide$Date <- as.Date(Google_AT_daily$Date)
+data_wide <- arrange(data_wide, time)
+data_wide$QDate <- as.yearqtr(data_wide$time)
+data_wide$QDate  <- as.character(data_wide$QDate )
+data_wide$QDate[data_wide$QDate == "2021 Q3" | data_wide$QDate == "2021 Q4"] <- "2021 Q2"
+data_wide$QDate <- as.yearqtr(data_wide$QDate)
+data_wide_qterly <- data_wide %>% group_by(QDate) %>%
+  summarise_all(mean)
+
+```
+
+OLS
+```{r}
+
+as.data.frame(data_wide_qterly)
+x = as.matrix(data_wide_qterly[1:62,-c(1,2)])
+model_lm_cat = lm(GDP_qtrly$Value~ x)
+summary(model_lm_cat)
+#eval_results(data_wide_qterly$GDP_qtrly,model_lm_cat$fitted.values ,data_wide_qtrly)
+
+RMSE <- rmse(GDP_qtrly$Value,model_lm_cat$fitted.values)
+RMSE
+library(jtools)
+summ(model_lm_cat)
+stargazer::stargazer(model_lm_cat)
+stargazer::stargazer(model_lm_cat, header=FALSE, font.size = "tiny")
+stargazer:stargazer()
+```
+
+Ridge from class
+```{r}
+x = as.matrix(data_wide_qterly[1:62,-c(1,2,19)])
+y = GDP_qtrly$Value
+print(cor(x))
+
+ridge.mod  = glmnet(x,y,alpha=0,standardize = TRUE)
+plot(ridge.mod)   
+
+cv.out  = cv.glmnet(x,y,alpha = 0, nfolds = 10)
+plot(cv.out)
+best_lambda = cv.out$lambda.min
+print(" best lambda in cv for ridge is ")
+print(best_lambda) 
+
+ridgebestlambda.mod  = glmnet(x,y,alpha=0,lambda=best_lambda,standardize = TRUE)
+print(coef(ols.mod))
+print(coef(ridgebestlambda.mod))
+
+stargazer::stargazer(coef(ridgebestlambda.mod), header=FALSE, font.size = "tiny")
+
+
+predictions_ridge <- predict(ridgebestlambda.mod, s = best_lambda, newx = x)
+eval_results(GDP_qtrly$Value,predictions_ridge,data_wide_M)
+```
+Lasso from class
+```{r}
+lasso.mod  = glmnet(x,y,alpha=1,standardize = TRUE)
+plot(lasso.mod)  
+print(coef(lasso.mod))
+
+cv.out  = cv.glmnet(x,y,alpha = 1, nfolds = 10)
+plot(cv.out)
+
+best_lambda = cv.out$lambda.min
+print(best_lambda) 
+
+lassobestlambda.mod  = glmnet(x,y,alpha=1,lambda=best_lambda,standardize = TRUE)
+print(coef(lassobestlambda.mod))
+
+predictions_lasso <- predict(lassobestlambda.mod, s = best_lambda, newx = x)
+eval_results(y,predictions_lasso ,data_wide_qtrly)
+```
+##### Linear Model with categories - NOT Averaged data 
+
+
+```{r}
+data_wide$QDate <- as.yearqtr(data_wide$time)
+data_wide$QDate <- as.character(data_wide$QDate)
+data_wide$QDate[data_wide$QDate == "2021 Q3" | data_wide$QDate == "2021 Q4"] <- "2021 Q2"
+data_wide$QDate <- as.yearqtr(data_wide$QDate)
+data_wide_M <- data_wide %>% group_by(QDate) %>%
+  filter(time==max(time)) %>% 
+  ungroup 
+```
+OLS
+```{r}
+as.data.frame(data_wide_M)
+x = as.matrix(data_wide_M[1:62,-c(1,18)])
+x
+model_lm_cat_2 = lm(GDP_qtrly$Value~ x)
+summary(model_lm_cat_2)
+#eval_results(data_wide_qterly$GDP_qtrly,model_lm_cat$fitted.values ,data_wide_qtrly)
+
+RMSE <- rmse(GDP_qtrly$Value,model_lm_cat$fitted.values)
+RMSE
+library(jtools)
+summ(model_lm_cat)
+stargazer::stargazer(model_lm_cat)
+```
+
+Expanding OLS - does not work yet !!!! 
+```{r}
+
+data_wide_qterly<-cbind(data_wide_qterly,GDP_qtrly$Value)
+data_wide_qterly <-data_wide_qterly[,1:19]
+data_wide_qterly <- data_wide_qterly %>% rename(GDP = `GDP_qtrly$Value`)
+
+
+indep_var <- colnames(x)
+
+dep_var <- "GDP"
+x <- as.data.frame(x)
+formula_ols_all_rev = GDP ~ x$`Autos & Vehicles` + x$`Jobs & Education` + x$`NA` + x$`Food & Drink` + x$Finance + x$Health + x$`Real Estate` + x$`Internet & Telecom` + x$News + x$Travel +x$`Beauty & Fitness` +x$Sports + x$`Business & Industrial` +x$`Home & Garden` + x$`Law & Government` +x$Shopping
+expanding_OLS <- expanding_window_OLS(data_wide_qterly[,-c(1,2)], dep_var, start = 12) # muss datenset cutten weg LAG!
+
+error_OLS <- error_OLS_model(data_wide_qterly[,-c(1,2)], expanding_OLS, indep_var, start = 12)
+
+error_OLS <-error_OLS[!is.na(error_OLS)]
+```
+```{r, echo = F}
+expanding_window_Ridge <- function(start = 12, data, indep_var, dep_var, lambda = NULL){
+  # 1) define some lambda values------------------------------------------------ 
+  lambdas <- 10^seq(2,-3, by = -0.1) 
+  
+  # 2) create empty list for lasso coefficients---------------------------------
+  Ridge_coef <- list() 
+  
+  # 3) error holder for lasso OOS-error-----------------------------------------
+  OOS_error_Ridge <- c() # empty vector
+  
+  # 4) resid holder for lasso IS-error------------------------------------------
+  resid_Ridge <- c()
+  
+  j <- 0
+  for(i in start:nrow(data)){
+  j <- j+1  # here it is just needed for the list-entries
+  
+  # 5) data for lasso-----------------------------------------------------------  
+    X <- as.matrix(data[1:(i-1),]) 
+    train <- as.matrix(data[1:(i-1),"GDP"]) # train data 
+    # the actual values for i will be predicted
+  
+  # 6) find optimal value using cv.glmnet---------------------------------------
+    # (otherwise one could use glmnet() and run it several times)
+     if(is.null(lambda)){ 
+       # if it is NULL then we need to still find the best lambda
+         cv_lasso <- cv.glmnet(x = X, y = train, alpha = 0, lambda = lambdas, 
+                               standardize = TRUE)
+  
+         best_lambda <- cv_lasso$lambda.min
+     }
+      else{ 
+        # if lambda is not NULL then we already have our best lambda
+         best_lambda <- lambda
+      }
+    # 7) now that we have found best lambda - make best lasso regression--------
+    Ridge_model <- glmnet(x = X, y = train, alpha = 0, lambda = best_lambda, 
+                         standardize = TRUE)
+    
+    Ridge_coef[[j]] <- coef(Ridge_model)
+    # 8) make predictions (needed for OOS error)--------------------------------
+    x_predictions <- as.matrix(data[i, ]) 
+    # now we take the actual value for i
+    # take the current value of the iteration, we  will use this to make predictions with lasso model
+    predictions_train <- predict(Ridge_model, s = best_lambda, newx = x_predictions)
+    
+    OOS_error_Ridge[j] <- as.numeric(predictions_train-data[i, "GDP"])
+    
+    # 9) fitted values (needed for IS error)------------------------------------
+    prediction_last_observation <- as.matrix(data[(i-1), ])
+    # take the observation that the model already knows and try to predict it that value
+    
+    fitted_Ridge <- predict(Ridge_model, s = best_lambda, 
+                            newx = prediction_last_observation)
+    resid_Ridge[j] <- as.numeric(data[(i-1), dep_var]-fitted_Ridge)
+  }
+    # 10) model statistics---------------------------------------------------------
+  MAE_Ridge <- mean(abs(OOS_error_Ridge))
+  MSE_Ridge <- mean(OOS_error_Ridge^2)
+    # mean-squared-error: always non-negative
+    # MSE =  second moment (about the origin) of  error & thus incorporates both variance of 
+    # estimator (how widely spread the estimates are from one data sample to another) 
+    # and its bias (how far off the average estimated value is from the true value)
+    # recall: MSE = RSS/n
+  OOS_Ridge <- cumsum(OOS_error_Ridge^2)
+  
+  return(list("Ridge model" = Ridge_model,
+              "OOS_error_Ridge" = OOS_error_Ridge,
+              "MAE_Ridge_OOS" = MAE_Ridge,
+              "MSE_Ridge_OOS" = MSE_Ridge, 
+              "OOS_Ridge" = OOS_Ridge, 
+              "Ridge_coef" = Ridge_coef, 
+              "resid_Ridge" = resid_Ridge))
+}
+
+expanding_window_Ridge_12_output <- expanding_window_Ridge(start = 12, data_wide_qterly[,c(1,2)], indep_var, dep_var, lambda = NULL)
+
+data_wide_qterly <- as.vector(data_wide_qterly)
+
+# extract the coefficients------------------------------------------------------
+# i have 13 coefficients + 1 intercept = 14 coefficients, 
+# for each coefficient (n) should extract the result 
+extraction_coef_Ridge <- function(expanding_window_Ridge_100_output, indep_var){
+  # empty matrix
+  coef <- matrix(NA, nrow = length(expanding_window_Ridge_100_output$Ridge_coef), 
+                    ncol = (length(indep_var)+1), byrow = F) 
+  # fill the column for each variable (+ intercept) first 
+  colnames(coef) <- c("intercept", indep_var) # each indep. var has one column 
+  
+  for(i in 1:(length(indep_var)+1)){ # each variable (incl. intercept) has one column
+    for(j in 1:length(expanding_window_Ridge_100_output$Ridge_coef)){
+    coef[j,i] <- expanding_window_Ridge_100_output$Ridge_coef[[j]][i]
+    }
+  }
+  return(coef)
+}
+
+Ridge_coef_out <- extraction_coef_Ridge(expanding_window_Ridge_100_output, indep_var)
+
+Ridge_model <- expanding_window_Ridge_100_output[["Ridge model"]]
+
+# OOS error-terms---------------------------------------------------------------
+MAE_Ridge_OOS <- expanding_window_Ridge_100_output$MAE_Ridge_OOS
+MSE_Ridge_OOS <- expanding_window_Ridge_100_output$MSE_Ridge_OOS
+OOS_Ridge <- expanding_window_Ridge_100_output$OOS_Ridge
+
+# IS error-terms----------------------------------------------------------------
+resid_Ridge <- expanding_window_Ridge_100_output$resid_Ridge
+```
+
+RIDGE
+```{r}
+
+```
+
+LASSO
+```{r}
+
+```
+
+

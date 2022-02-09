@@ -1,0 +1,198 @@
+---
+title: "SAMPLING"
+author: "Anne Valder"
+date: "10/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+ Sampling issue visualization! OECD paper und neue 3 tages daten hier zu ähnlich!
+
+```{r}
+
+# ch3ck vola of all TS  if different very heterogenous - standardise 
+day1 <- gtrends( #06.06
+  keyword =  "Wirtschaftswachstum",
+  geo     = "AT",
+  time = "2009-01-01 2021-08-31")
+
+day1 <- day1$interest_over_time
+day1 <- day1[, 1:2]
+write.csv(day1,"/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/data/sampling/day1_sampling_Wachstum.csv")
+
+
+day1_krise <- gtrends( #06.06
+  keyword =  "Wirtschaftkrise",
+  geo     = "AT",
+  time = "2009-01-01 2021-08-31")
+
+day1_krise  <- day1_krise$interest_over_time
+day1_krise <- day1_krise[, 1:2]
+write.csv(day1_krise,"/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/data/sampling/day1_sampling_krise.csv")
+
+ts_plot(day1)
+adf.test(day1$hits)
+
+day2 <- gtrends( #06.06
+  keyword =  "Wirtschaftswachstum",
+  geo     = "AT",
+  time = "2009-01-01 2021-08-31")
+
+day2 <- day2$interest_over_time
+
+day2 <- day2[, 1:2]
+
+write.csv(day2,"/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/data/sampling/day2_sampling_Wachstum.csv")
+
+
+day2_krise <- gtrends( #06.06
+  keyword =  "Wirtschaftskrise",
+  geo     = "AT",
+  time = "2009-01-01 2021-08-31")
+
+day2_krise  <- day2_krise$interest_over_time
+day2_krise <- day2_krise[, 1:2]
+write.csv(day2_krise,"/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/data/sampling/day2_sampling_krise.csv")
+
+ts_plot(day1_krise,day2_krise)
+##### day 26.09
+
+day3 <- gtrends( #06.06
+  keyword =  "Wirtschaftswachstum",
+  geo     = "AT",
+  time = "2009-01-01 2021-08-31")
+
+day3 <- day3$interest_over_time
+day3 <- day3[, 1:2]
+
+write.csv(day3,"/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/data/sampling/day3_sampling_Wachstum.csv")
+ts_plot(day1,day2,day3)
+
+day3_krise <- gtrends( #06.06
+  keyword =  "Wirtschaftskrise",
+  geo     = "AT",
+  time = "2009-01-01 2021-08-31")
+
+day3_krise  <- day3_krise$interest_over_time
+day3_krise <- day3_krise[, 1:2]
+write.csv(day3_krise,"/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/data/sampling/day3_sampling_krise.csv")
+
+ts_plot(day4_krise,day2_krise,day3_krise)
+#MERGE data together take average !!!! 
+
+#10.08.21 = day1
+
+
+
+category = "day1"
+ path <- path_keyword(category,geo, suffix = "SAMPLING")
+ path
+  write_csv(day1, path)
+  
+day2 <- gtrends(#07.08
+  keyword =  "Wirtschaftskrise",
+  geo     = "AT",
+  time = "2006-01-01 2021-08-31")
+
+day3 <- gtrends(#08.08
+  keyword =  "Wirtschaftskrise",
+  geo     = "AT",
+  time = "2006-01-01 2021-07-31")
+
+
+new <- full_join(tag1,Tag2, by = "Monat")
+new <- full_join(new,Tag3, by = "Monat")
+
+colnames(new)[colnames(new) %in% c("Monat", "Wirtschaftskrise: (Österreich).x", "Wirtschaftskrise: (Österreich).y", "Wirtschaftskrise: (Österreich)")] <- c("Date", "Tag1", "Tag2", "Tag3")
+new <- as.data.frame(new)
+
+
+new <- cbind(new,ts1, ts2, ts3)
+
+ts.plot(ts(new$Tag1,frequency = 12, start = c(2006,8)),
+        ts(new$Tag2,frequency = 12, start = c(2006,8)), 
+        ts(new$Tag3, frequency = 12,start = c(2006,8)),
+    col = c("red", "blue", "black"), 
+    xlab = "Year", 
+    ylab = "Search Frequency (Wirtschaftskrise)", 
+    lwd = 1)
+legend("bottomright", c("Tag 1", "Tag 2","Tag 3"), col=c("red","blue", "black"), lty=c(1),
+       inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
+       )
+
+```
+
+```{r}
+growth <- cbind(day1,day2$hits,day3$hits)
+
+growth <- growth %>% 
+  rename(
+    hits_d1 = hits,
+    hits_d2 = `day2$hits`,
+    hits_d3 = `day3$hits`)
+
+growth_long <- melt(growth, id.vars = "date")
+
+ggplot(growth_long,                            # Draw ggplot2 time series plot
+       aes(x = date,
+           y = value,
+           col = variable)) +
+  geom_line() +
+  theme_classic() +
+  labs(title = "Sampling Problem: Economic Growth", x = "Years", y = "Hits",color = "Legend")+
+  theme(plot.title = element_text(hjust = 0.5, face ="bold"))+
+  scale_y_continuous(limit= c(-10,100)) +
+  theme(legend.position="bottom", legend.title = element_blank())+
+  scale_color_manual(labels = c("Day1", "Day2","Day3"), values = c("blue", "orange","black"))
+  
+
+cor1_2 <- cor(growth$hits_d1,growth$hits_d2)
+cor1_3 <- cor(growth$hits_d1,growth$hits_d3)
+cor2_3 <- cor(growth$hits_d2,growth$hits_d3)
+growth_cor <- growth[,2:4]
+cor_matrix <- cor(growth_cor)
+cor_matrix
+stargazer::stargazer(cor_matrix, title = "Correlation 3 different samples")
+```
+
+
+```{r}
+###### krise 
+krise <- cbind(day2_krise,day3_krise$hits,day4_krise$hits)
+
+krise <- krise %>% 
+  rename(
+    hits_d1 = hits,
+    hits_d2 = `day3_krise$hits`,
+    hits_d3 = `day4_krise$hits`)
+
+krise_long <- melt(krise, id.vars = "date")
+
+ggplot(krise_long,                            # Draw ggplot2 time series plot
+       aes(x = date,
+           y = value,
+           col = variable)) +
+  geom_line() +
+  theme_classic() +
+  labs(title = "Sampling Problem: Economic Crisis", x = "Years", y = "Hits",color = "Legend")+
+  theme(plot.title = element_text(hjust = 0.5, face ="bold"))+
+  scale_y_continuous(limit= c(-10,100)) +
+  theme(legend.position="bottom", legend.title = element_blank())+
+  scale_color_manual(labels = c("Day1", "Day2","Day3"), values = c("blue", "orange","black"))
+  
+krise_cor <- krise[,2:4]
+cor_matrix_k <- cor(krise_cor)
+cor_matrix_k
+stargazer::stargazer(cor_matrix_k, title = "Correlation 3 different samples")
+```
+
+
+```{r}
+##### averaging!
+growth_new <- cbind(day1,day2$hits,day3$hits,day4$hits,day5$hits,day6$hits)
+growth_new$average <- rowMeans(growth_new[ , 2:6], na.rm=TRUE)
+growth_av <- growth_new[,c(1,7)]
+ts_plot(growth_av)
+```
