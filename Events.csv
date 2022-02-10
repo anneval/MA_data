@@ -1,0 +1,22 @@
+﻿id;date;event
+1;11.03.20;WHO declared COVID-19 outbreak as pandemic
+2;15.03.20;Start 1st nationwide lockdown
+3;01.05.20;End 1st nationwide lockdown
+4;14.09.20;Tightened measures (face masks mandatory)
+5;03.11.20;Lockdown 'light'
+6;17.11.20;Start 2nd nationwide lockdown
+7;06.12.20;End 2nd nationwide lockdown
+8;23.12.20;Start 3rd nationwide lockdown
+9;27.12.20;Start Vaccination
+10;07.02.21;End 3rd nationwide lockdown
+11;01.04.21;Start regional Lockdowns (Vienna, Burgenland, Lower Austria)
+11;12.04.21;Extension regional Lockdowns (Vienna, Lower Austria)
+12;19.05.21;Easing measures - gastronomy, tourism, sports
+13;10.06.21;Easing measures - social distancing
+14;23.06.21;Vaccination possible for everyone (Vienna)
+15;01.07.21;Easing measures - night gastronomy
+16;15.11.21;Lockdown for unvaccinated
+17;22.11.21;Start 4th nationwide lockdown
+18;12.12.21;End 4th nationwide lockdown
+19;31.01.22;End of Lockdown for unvaccinated
+20;05.02.22;Begin compulsory vaccination
