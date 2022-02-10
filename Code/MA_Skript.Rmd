@@ -18,9 +18,7 @@ library(tsbox)
 
 
 ```{r}
-
 #setwd("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT")
-
 keywords <- c("Wirtschaftskrise", "Kurzarbeit", "arbeitslos") #Insolvenz
 geo ="AT"
 
@@ -56,8 +54,6 @@ proc_keyword("Insolvenz","AT")
 ```
 
 ```{r}
-
-
 # read in all data series from the last step (seas. adjust)
 data <- read_keywords(keywords,geo = "AT", id = "seas_adj")
 # Combine the adjusted key word series to one overall sentinment series using PCA!
@@ -84,7 +80,7 @@ write_keyword(x_prcomp, geo, "sa")
 ts.plot(x_prcomp$value)
 
 ```
-# Daily updates
+# Daily updates anderes file
 
 ```{r}
 #1-create a variable holding the set of keywords used for the series:

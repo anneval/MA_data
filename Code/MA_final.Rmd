@@ -275,9 +275,9 @@ adf.test(CCI_diff_qtrly$`diff(CCI_mntly$Value)`) # 0.01
 acf(CCI_diff_qtrly$`diff(CCI_mntly$Value)`)
 ```
 
-
 ## Google Data 
 ```{r}
+# change to source data from my github! 
 Google_AT_daily <- read.csv("https://raw.githubusercontent.com/trendecon/data/master/data/at/trendecon_sa.csv")
 Google_AT_daily <-  data.frame(Google_AT_daily) 
 colnames(Google_AT_daily)[colnames(Google_AT_daily) %in% c("time", "value")] <- c("Date", "Value")
