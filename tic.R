@@ -7,7 +7,5 @@ get_stage("deploy") %>%
   add_step(step_install_cran("prophet")) %>%
   add_step(step_install_cran("tibble")) %>%
   add_code_step(library(prophet)) %>%
-  add_code_step(withr::with_package("trendecon", proc_trendecon_ch())) %>%
-  add_code_step(withr::with_package("trendecon", proc_trendecon_de())) %>%
-  add_code_step(withr::with_package("trendecon", proc_trendecon_at())) %>%
+  add_code_step(source("https://raw.githubusercontent.com/anneval/MA/main/Code/Indicators.R")) %>%
   add_step(step_do_push_deploy())
