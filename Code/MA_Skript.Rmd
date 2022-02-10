@@ -28,9 +28,9 @@ proc_keyword_init("Kurzarbeit","AT")#recruitment, mortgage
 proc_keyword_init("arbeitslos","AT")
 #DO TOMORROW!
 proc_keyword_init("Insolvenz","AT")#bankruptcy
-#proc_keyword_init("Inflation","AT") #??? Preisanstieg, Energiepreise
+proc_keyword_init("Inflation","AT") #??? Preisanstieg, Energiepreise
 #recession , ‘economic reforms’, and ‘debt stabilization’.
-
+# kredit? oder iwas zu housing ? 
 # also do as robustness check different words!
 
 #Keywords: What makes Google Trends a powerful tool for economic predictions is its coverage of a large number of aspects of economic activity. Data about search behaviour can be informative about consumption (e.g. related to searches for “vehicles”, “households appliances”), labour markets (e.g.“recruitment”), housing (e.g. “real estate agency”, “mortgage”), business services (e.g.“venture capital”, “bankruptcy”), industrial activity (e.g. “maritime transport”, “agricultural equipment”) as well as economic sentiment (e.g. “recession”) and poverty (e.g. “food bank”). Signals about multiple facets of the economy can be aggregated to infer a timely picture of the macro economy.(OECD PAPER)
