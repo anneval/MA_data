@@ -19,7 +19,7 @@ library(tsbox)
 
 ```{r}
 #setwd("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT")
-keywords <- c("Wirtschaftskrise", "Kurzarbeit", "arbeitslos") #Insolvenz
+keywords <- c("Wirtschaftskrise", "Kurzarbeit", "arbeitslos","Insolvenz") #Insolvenz
 geo ="AT"
 
 # only run once!
@@ -28,7 +28,7 @@ proc_keyword_init("Kurzarbeit","AT")#recruitment, mortgage
 proc_keyword_init("arbeitslos","AT")
 #DO TOMORROW!
 proc_keyword_init("Insolvenz","AT")#bankruptcy
-proc_keyword_init("Inflation","AT") #??? Preisanstieg, Energiepreise
+#proc_keyword_init("Inflation","AT") #??? Preisanstieg, Energiepreise
 #recession , ‘economic reforms’, and ‘debt stabilization’.
 
 # also do as robustness check different words!
