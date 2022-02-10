@@ -19,7 +19,7 @@ library(tsbox)
 
 ```{r}
 #setwd("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT")
-keywords <- c("Wirtschaftskrise", "Kurzarbeit", "arbeitslos","Insolvenz") #Insolvenz
+keywords <- c("Wirtschaftskrise", "Kurzarbeit", "arbeitslos","Insolvenz", "Inflation") #Insolvenz
 geo ="AT"
 
 # only run once!
@@ -78,6 +78,10 @@ x_prcomp$value <- -x_prcomp$value
 # Final Index
 write_keyword(x_prcomp, geo, "sa")
 ts.plot(x_prcomp$value)
+
+
+index <- read.csv("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/GIT/Code/raw/at/trendecon_sa.csv")
+ts.plot(index$value)
 
 ```
 # Daily updates anderes file
