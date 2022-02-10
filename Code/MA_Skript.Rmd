@@ -40,18 +40,24 @@ proc_keyword_init("Inflation","AT") #??? Preisanstieg, Energiepreise
 #Reasons I stayed with keywords instead of topic/ category search - computational issues if consider Sampling problem porperly!!! OECD: the algorithm (a “neural network”) extracts relevant information from 250 Google Trends variables, that each aggregate information about searches by Google users for thousands a keywords
 ```
 
+
+better directly as one!
+```{r}
+proc_index(keywords,"AT", "trendecon")
+```
+
 ```{r}
 #lapply(keywords, proc_keyword) # do stepwise? 
 # Includes the followign functions: proc_keyword_latest,proc_combine_freq, proc_seas_adj
 proc_keyword("arbeitslos","AT")
 proc_keyword("Wirtschaftskrise","AT")
 proc_keyword("Kurzarbeit","AT")
-#proc_keyword("Insolvenz","AT")
+proc_keyword("Insolvenz","AT")
 ```
 
 ```{r}
 
-proc_index()
+
 # read in all data series from the last step (seas. adjust)
 data <- read_keywords(keywords,geo = "AT", id = "seas_adj")
 # Combine the adjusted key word series to one overall sentinment series using PCA!
@@ -89,7 +95,6 @@ kw_econsent <- c(
 )
 
 proc_index(kw_econsent, "AT", "econsent")
-
 indices_in_production <- c(
   "econsent"
 )
