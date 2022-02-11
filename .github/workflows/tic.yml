@@ -1,4 +1,4 @@
-## tic GitHub Actions template: linux-macos
+## tic GitHub Actions template: linux
 ## revision date: 2021-06-27
 on:
   workflow_dispatch:
@@ -22,9 +22,7 @@ jobs:
       matrix:
         config:
           # use a different tic template type if you do not want to build on all listed platforms
-          - { os: ubuntu-latest, r: "release" }
-          - { os: macOS-latest, r: "release", latex: "true" }
-          - { os: ubuntu-latest, r: "devel" }
+          - { os: ubuntu-latest, r: "release", latex: "true" }
 
     env:
       # otherwise remotes::fun() errors cause the build to fail. Example: Unavailability of binaries
@@ -131,12 +129,3 @@ jobs:
         with:
           name: ${{ runner.os }}-r${{ matrix.config.r }}-results
           path: check
-      - name: "[Stage] Before Deploy"
-        run: |
-          Rscript -e "tic::before_deploy()"
-
-      - name: "[Stage] Deploy"
-        run: Rscript -e "tic::deploy()"
-
-      - name: "[Stage] After Deploy"
-        run: Rscript -e "tic::after_deploy()"
