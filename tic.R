@@ -9,5 +9,5 @@ get_stage("deploy") %>%
   add_step(step_install_cran("httr")) %>%
   add_code_step(withr::with_package("httr", set_config(config(http_version = 0)))) %>%
   add_code_step(library(prophet)) %>%
-  add_code_step(source("https://raw.githubusercontent.com/anneval/MA/main/Code/Indicators.R")) %>%
+  add_code_step(source("https://raw.githubusercontent.com/anneval/MA/main/Indicators.R")) %>%
   add_step(step_do_push_deploy())
