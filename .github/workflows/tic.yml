@@ -1,9 +1,8 @@
-## tic GitHub Actions template: linux-deploy
+## tic GitHub Actions template: custom-deploy
 ## revision date: 2021-06-27
+# [Custom header]
 on:
   workflow_dispatch:
-  push:
-  pull_request:
   # for now, CRON jobs only run on the default branch of the repo (i.e. usually on master)
   schedule:
     # * is a special character in YAML so you have to quote this string
@@ -21,8 +20,9 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          # use a different tic template type if you do not want to build on all listed platforms
-          - { os: ubuntu-latest, r: "release", pkgdown: "true" }
+          ### Custom configs (specify your own runners here)
+          # [Custom matrix env var]
+          - { os: ubuntu-18.04, r: "release" }
 
     env:
       # otherwise remotes::fun() errors cause the build to fail. Example: Unavailability of binaries
@@ -82,6 +82,10 @@ jobs:
         run: |
           Rscript -e "if (!requireNamespace('remotes')) install.packages('remotes', type = 'source')"
           Rscript -e "if (getRversion() < '3.2' && !requireNamespace('curl')) install.packages('curl', type = 'source')"
+
+      - name: "[Custom block] [Linux] Install libv8"
+        if: runner.os == 'Linux'
+        run: sudo apt install libv8-dev
 
       - name: "[Stage] [macOS] Install libgit2"
         if: runner.os == 'macOS'
