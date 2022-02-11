@@ -29,7 +29,7 @@ proc_index(keywords,"AT", "trendecon")
 
 ###### ADD FURTHER INDICES! (CORONA, CONSUMPTION, UNEMPLOYMENT) Add to file in GIT! 
 
-corona <- c("")
-consumption <- c("")
-unemployment <- c("")
-housing <- c("")
+#corona <- c("")
+#consumption <- c("")
+#unemployment <- c("")
+#housing <- c("")
