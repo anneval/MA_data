@@ -4,7 +4,7 @@
 # Load needed libraries
 
 library(trendecon)
-library(tidyverse)
+#library(tidyverse)
 library(tsbox)
 
 # Specify region to Austria 
