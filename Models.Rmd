@@ -1,0 +1,65 @@
+---
+title: "Untitled"
+author: "Anne Valder"
+date: "2/12/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# libraries
+
+```{r}
+library(readr)
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(tseries)
+library(forecast)
+library(vars)
+```
+
+
+```{r}
+getwd()
+setwd("/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/R-CODE")
+```
+# Load all data in (GDP, CCI, Goolge), extension unemployment (statAT), inflation(statAT), uncertainty index (paper Brown et al)
+
+#GDP
+```{r}
+# abgerufen final am 11.02.2022
+#Source: https://data.oecd.org/gdp/quarterly-gdp.htm#indicator-chart
+gdp_qtrly <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[,6:7]
+
+colnames(gdp_qtrly)[colnames(GDP_qtrly) %in% c("TIME", "Value")] <- c("QDate", "Value")
+```
+
+#CCI
+```{r}
+cci_mnly <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[,6:7]
+
+
+
+```
+
+# Google
+```{r}
+Google_AT_daily <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/raw/at/trendecon_sa.csv")
+
+
+```
+
+
+# transform to ts all,  aggregate data (new gdP!)
+# do tests for stationarity
+# create one data matrix for Var later
+# write down all models  I want todo (Heik models, 4 lags quarterly data, and tests for lag length with arima and VAR models)
+
+# do simple split OOS forecast and expanding OOS forecast, extension LLOCV
+# adjust expanding window functions (for Var, arima)
+
+# Robustness different aggregation 
