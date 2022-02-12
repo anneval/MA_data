@@ -40,7 +40,10 @@ colnames(gdp_qtrly)[colnames(GDP_qtrly) %in% c("TIME", "Value")] <- c("QDate", "
 
 #CCI
 ```{r}
-cci_mnly <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[,6:7]
+# abgerufen final am 11.02.2022
+#Source: https://ec.europa.eu/info/business-economy-euro/indicators-statistics/economic-databases/business-and-consumer-surveys/download-business-and-consumer-survey-data/time-series_en#consumers
+
+cci_mnly <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/CCI_mtly.csv")
 
 
 
