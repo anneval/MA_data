@@ -36,6 +36,9 @@ setwd("/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/R-CODE")
 gdp_qtrly <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[,6:7]
 
 colnames(gdp_qtrly)[colnames(gdp_qtrly) %in% c("TIME", "Value")] <- c("QDate", "value")
+
+#ts:
+gdp_ts <- 
 ```
 
 #CCI
@@ -47,11 +50,25 @@ cci_mnly <- read.csv2("https://raw.githubusercontent.com/anneval/MA_data/main/RD
 
 colnames(cci_mnly)[colnames(cci_mnly) %in% c("X", "CONS.AT.TOT.COF.BS.M")] <- c("time", "value")
 
+# transform to quarterly and then do ts:
+
+
+
 ```
 
 # Google
 ```{r}
+# abgerufen: daily update
 Google_AT_daily <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/raw/at/trendecon_sa.csv")
+
+# transform to quarterly and then do ts:
+
+
+```
+
+
+#ADF tests: 
+```{r}
 
 ```
 
