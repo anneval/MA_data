@@ -35,7 +35,7 @@ setwd("/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/R-CODE")
 #Source: https://data.oecd.org/gdp/quarterly-gdp.htm#indicator-chart
 gdp_qtrly <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[,6:7]
 
-colnames(gdp_qtrly)[colnames(GDP_qtrly) %in% c("TIME", "Value")] <- c("QDate", "Value")
+colnames(gdp_qtrly)[colnames(gdp_qtrly) %in% c("TIME", "Value")] <- c("QDate", "value")
 ```
 
 #CCI
@@ -43,16 +43,15 @@ colnames(gdp_qtrly)[colnames(GDP_qtrly) %in% c("TIME", "Value")] <- c("QDate", "
 # abgerufen final am 11.02.2022
 #Source: https://ec.europa.eu/info/business-economy-euro/indicators-statistics/economic-databases/business-and-consumer-surveys/download-business-and-consumer-survey-data/time-series_en#consumers
 
-cci_mnly <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/CCI_mtly.csv")
+cci_mnly <- read.csv2("https://raw.githubusercontent.com/anneval/MA_data/main/RData/CCI_mtly.csv")[253:444,c(1,297)]
 
-
+colnames(cci_mnly)[colnames(cci_mnly) %in% c("X", "CONS.AT.TOT.COF.BS.M")] <- c("time", "value")
 
 ```
 
 # Google
 ```{r}
 Google_AT_daily <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/raw/at/trendecon_sa.csv")
-
 
 ```
 
