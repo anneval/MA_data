@@ -24,6 +24,7 @@ library(vars)
 
 
 ```{r}
+rm(list=ls())
 getwd()
 setwd("/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/R-CODE")
 ```
@@ -31,16 +32,28 @@ setwd("/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/R-CODE")
 
 #GDP
 ```{r}
+t_0 <- as.Date("2006-01-01") #Setting start date for the series
+t_1 <- as.Date("2021-12-31") #Setting end date for the seriesv
+Date <- seq.Date(t_0,t_1,by="quarter")
+
+bigT <- length(Date)
+M <- 1
+Data   <- matrix(NA,bigT,M)
+colnames(Data)  <- c("gdp") 
+Data <- as.data.frame(Data)
+rownames(Data)  <- as.Date(Date)
+
+Data[(Date%in%gdp_qtrly$QDate),2] <- (GDP_AT$Value)
+
 # abgerufen final am 11.02.2022
 #Source: https://data.oecd.org/gdp/quarterly-gdp.htm#indicator-chart
 gdp_qtrly <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[,6:7]
 
 colnames(gdp_qtrly)[colnames(gdp_qtrly) %in% c("TIME", "Value")] <- c("QDate", "value")
-
 #ts:
-gdp_ts <- 
-```
+gdp_ts <- ts(gdp_qtrly$value[9:71], start=c(2006,1), end = c(2021,3), frequency = 4)
 
+```
 #CCI
 ```{r}
 # abgerufen final am 11.02.2022
@@ -49,10 +62,17 @@ gdp_ts <-
 cci_mnly <- read.csv2("https://raw.githubusercontent.com/anneval/MA_data/main/RData/CCI_mtly.csv")[253:444,c(1,297)]
 
 colnames(cci_mnly)[colnames(cci_mnly) %in% c("X", "CONS.AT.TOT.COF.BS.M")] <- c("time", "value")
-
+class(cci_mnly$value)
+cci_mnly$time <- as.Date(cci_mnly$time)
 # transform to quarterly and then do ts:
-
-
+##1) Temporal Aggregation!
+cci_mnly <- arrange(cci_mnly, time)
+cci_mnly$QDate <- as.yearqtr(cci_mnly$time)  #### ERROR HERE!
+#cci_mnly$QDate <- as.character(CCI_mntly$QDate)
+cci_mnly$QDate[cci_mnly$QDate == "2021 Q4"] <- "2021 Q3"
+#CI_mntly$QDate <- as.yearqtr(CCI_mntly$QDate)
+cci_qtrly <- cci_mnly %>% group_by(QDate) %>%
+  summarise_all(mean)
 
 ```
 
