@@ -10,7 +10,7 @@ library(tsbox)
 # Specify region to Austria 
 # Select keywords: arbitraily chosen
 geo <- "AT"
-keywords <- c("Wirtschaftskrise", "Kurzarbeit", "arbeitslos","Insolvenz", "Inflation")
+keywords <- c("Wirtschaftskrise", "Kurzarbeit", "arbeitslos","Insolvenz")#, "Inflation")
 
 ###### Only once for initial download!
 
