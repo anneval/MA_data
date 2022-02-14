@@ -84,7 +84,7 @@ getwd()
 setwd("/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/data/Rcode")
 
 #### GDP ####
-GDP_qtrly <- read_csv("GDP_AT_Q12006.csv")[64:126,6:7] # unnötige columns weg und nur AT daten!
+GDP_qtrly <- GDP_oecd[9:71,6:7] # unnötige columns weg und nur AT daten!
 colnames(GDP_qtrly)[colnames(GDP_qtrly) %in% c("TIME", "Value")] <- c("QDate", "Value")
 #### Check data for stationarity and difference
 GDP_GR_diff <- diff(GDP_qtrly$Value) 
@@ -221,7 +221,7 @@ acf(Google_AT_qtrly$Value)
 ##Source: https://ec.europa.eu/info/business-economy-euro/indicators-statistics/economic-databases/business-and-consumer-surveys/download-business-and-consumer-survey-data/time-series_en#consumers
 
 ```{r}
-CCI_mntly<- read_xlsx("~/Desktop/Uni/WU WIEN/SoSe_21/MA/data/CCI.xlsx",sheet = "CONSUMER MONTHLY")[253:444,c(1,297)] # 297 ist Spalte KK - total index!
+CCI_mntly<- read_xlsx("/Users/annevalder/Desktop/Uni/WU WIEN/SoSe_21/MA/data/CCI.xlsx",sheet = "CONSUMER MONTHLY")[253:444,c(1,297)] # 297 ist Spalte KK - total index!
 
 CCI_mntly <- CCI_mntly %>% data.frame() 
 colnames(CCI_mntly)[colnames(CCI_mntly) %in% c("...1", "CONS.AT.TOT.COF.BS.M")] <- c("Date", "Value")
@@ -256,6 +256,7 @@ adf.test(CCI_qtrly_M$Value) # 0.02
 #### Quarterly of CCI differenced data 
 # DO AS ROBUSTNESS # 62 observations...
 ```
+
 ### Create quarterly aggregate of CCI diff data
 ```{r}
 ##1) Temporal Aggregation!
@@ -656,7 +657,7 @@ AR(1)+OLS,check varselect
 Model 6: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \beta_3 GT_{t,i} + \epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
 Estimation Strategy: 
 
-Models I want to do, relying on statistical tests????! 
++ Models I want to do, relying on statistical tests????! 
 AR(4)??? PACF, var select (mult TS), Autoarima (4,0,4) sugeested by GDP 
 
 ```{r}

@@ -33,47 +33,52 @@ setwd("/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/R-CODE")
 #GDP
 ```{r}
 t_0 <- as.Date("2006-01-01") #Setting start date for the series
-t_1 <- as.Date("2021-12-31") #Setting end date for the seriesv
-Date <- seq.Date(t_0,t_1,by="quarter")
+t_1 <- as.Date("2021-07-01") #Setting end date for the series
+t_2 <- as.Date("2021-12-31")
+Date_q <- seq.Date(t_0,t_1,by="quarter")
+Date_m <- seq.Date(t_0,t_2,by="month")
 
-bigT <- length(Date)
-M <- 1
+bigT <- length(Date_q)
+M <- 3
 Data   <- matrix(NA,bigT,M)
-colnames(Data)  <- c("gdp") 
+colnames(Data)  <- c("gdp", "cci", "google") 
 Data <- as.data.frame(Data)
-rownames(Data)  <- as.Date(Date)
-
-Data[(Date%in%gdp_qtrly$QDate),2] <- (GDP_AT$Value)
+rownames(Data)  <- as.Date(Date_q)
 
 # abgerufen final am 11.02.2022
 #Source: https://data.oecd.org/gdp/quarterly-gdp.htm#indicator-chart
-gdp_qtrly <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[,6:7]
+gdp <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[9:71,6:7]
 
-colnames(gdp_qtrly)[colnames(gdp_qtrly) %in% c("TIME", "Value")] <- c("QDate", "value")
+colnames(gdp)[colnames(gdp) %in% c("TIME", "Value")] <- c("QDate", "value")
+gdp <- cbind(gdp,Date_q)
 #ts:
-gdp_ts <- ts(gdp_qtrly$value[9:71], start=c(2006,1), end = c(2021,3), frequency = 4)
+gdp_ts <- ts(gdp$value, start=c(2006,1), end = c(2021,3), frequency = 4)
 
+Data[(Date_q%in%gdp$Date_q),1] <- gdp$value
+Data$gdp <- ts(Data$gdp, start=c(2006,1), end = c(2021,3), frequency = 4)
 ```
 #CCI
 ```{r}
 # abgerufen final am 11.02.2022
 #Source: https://ec.europa.eu/info/business-economy-euro/indicators-statistics/economic-databases/business-and-consumer-surveys/download-business-and-consumer-survey-data/time-series_en#consumers
 
-cci_mnly <- read.csv2("https://raw.githubusercontent.com/anneval/MA_data/main/RData/CCI_mtly.csv")[253:444,c(1,297)]
+cci <- read.csv2("https://raw.githubusercontent.com/anneval/MA_data/main/RData/CCI.csv")[253:444,c(1,297)]
 
-colnames(cci_mnly)[colnames(cci_mnly) %in% c("X", "CONS.AT.TOT.COF.BS.M")] <- c("time", "value")
-class(cci_mnly$value)
-cci_mnly$time <- as.Date(cci_mnly$time)
-# transform to quarterly and then do ts:
-##1) Temporal Aggregation!
-cci_mnly <- arrange(cci_mnly, time)
-cci_mnly$QDate <- as.yearqtr(cci_mnly$time)  #### ERROR HERE!
-#cci_mnly$QDate <- as.character(CCI_mntly$QDate)
-cci_mnly$QDate[cci_mnly$QDate == "2021 Q4"] <- "2021 Q3"
-#CI_mntly$QDate <- as.yearqtr(CCI_mntly$QDate)
-cci_qtrly <- cci_mnly %>% group_by(QDate) %>%
+colnames(cci)[colnames(cci) %in% c("X", "CONS.AT.TOT.COF.BS.M")] <- c("time", "value")
+cci <- cbind(cci,Date_m)
+cci <- arrange(cci, Date_m)
+cci$Date_q <- as.yearqtr(cci$Date_m) 
+cci$Date_q <- as.Date(cci$Date_q)
+
+#cci$Date_q  <- as.character(cci$Date_m)
+#cci$Date_q[CCI_mntly$Date_q == "2021 Q4"] <- "2021 Q3"
+
+cci_qtrly <- cci %>% group_by(Date_q) %>%
   summarise_all(mean)
 
+cci_qtrly_63 <- cci_qtrly[1:63,]
+Data[(Date_q%in%cci_qtrly_63$Date_q),2] <- (cci_qtrly_63$value)
+Data$cci <- ts(Data$cci, start=c(2006,1), end = c(2021,3), frequency = 4)
 ```
 
 # Google
@@ -82,16 +87,65 @@ cci_qtrly <- cci_mnly %>% group_by(QDate) %>%
 Google_AT_daily <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/raw/at/trendecon_sa.csv")
 
 # transform to quarterly and then do ts:
+Google_AT_daily$time <- as.Date(Google_AT_daily$time)
+Google_AT_daily <- arrange(Google_AT_daily, time)
+Google_AT_daily$Date_q <- as.yearqtr(Google_AT_daily$time)
+Google_AT_daily$Date_q <- as.Date(Google_AT_daily$Date_q)
+#Google_AT_daily$QDate  <- as.character(Google_AT_daily$QDate)
+#Google_AT_daily$QDate[Google_AT_daily$QDate == "2022 Q1"] <- "2021 Q3"  
+#Google_AT_daily$QDate[Google_AT_daily$QDate == "2021 Q4"] <- "2021 Q3"  
+Google_AT_qtrly <- Google_AT_daily %>% group_by(Date_q) %>%
+  summarise_all(mean)
 
-
+rownames(Google_AT_qtrly)  <- as.Date(Date_q)
+Google_AT_qtrly_63 <- Google_AT_qtrly[1:63,]
+Data[(Date_q%in%Google_AT_qtrly_63$Date_q),3] <- (Google_AT_qtrly_63$value)
+Data$google <- ts(Data$google, start=c(2006,1), end = c(2021,3), frequency = 4)
 ```
 
 
 #ADF tests: 
 ```{r}
+adf.test(Data$gdp) # stationary
+adf.test(Data$cci) # stationary
+adf.test(Data$google) # not stat 
+# not stationary since I included inflation... 
+
+```
+kss tests and phillip peron tests:
+```{r}
 
 ```
 
+# ACF and PACF plots: Reasoning stationarity
+```{r}
+
+```
+#### Models - simple first later expanding? (and CV and split data set)
+# Models Heik:
+```{r}
+
+```
+
+# Create dataframe for VAR (all only until Q3 2021, do not put Q421 into Q3)
+```{r}
+
+```
+
+#VAR model mit Varselect
+```{r}
+
+```
+
+# AR & VAR model Heik again mit selction criteria (AIC, autoarima, varselect)
+```{r}
+
+```
+
+#Extensions
+```{r}
+
+```
 
 # transform to ts all,  aggregate data (new gdP!)
 # do tests for stationarity
