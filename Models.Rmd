@@ -5,6 +5,15 @@ date: "2/12/2022"
 output: html_document
 ---
 
+Models I have:
+
+- AR(1) and standard OLS (split data IS and OOS) (5x)
+- AR(1) and expanding estimation  (IS and OOS) - party missing (5x) - cannot compare to others sample set
+- auto.arima model (lag selection automatic, and 4)
+- VAR model (lag selection automatic, and 4)
+
+goal which is best at forecasting GDP! (measured by out of sample accuracy)
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -218,18 +227,22 @@ accuracy(mod6)
 
 #VAR model mit Varselect all 3 variables
 ```{r}
-Yselect <- VARselect(Data_train[,1:3])      #lag 10         # computes information criteria
+Yselect <- VARselect(Data[,4:6])      #lag 2      # computes information criteria
   lag <- Yselect$selection[1]  # AiC
   
-VAR_est <- VAR(y = Data_train[,1:3], p = lag)
+lag 
+
+VAR_est <- VAR(y = Data[,4:6], p = lag)
+
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
-forecasts <- predict(VAR_est,Data_test[,1:3])
+forecasts <- predict(VAR_est)
 forecasts
 plot(forecasts)
 
 ```
+
 # Residual analysis
 ```{r}
 sum2 <- data.frame(
@@ -289,15 +302,34 @@ plot(forecasts_3)
 # AR & VAR model Heik again mit selction criteria (AIC, autoarima, varselect)
 ```{r}
 # AR(1) model 
-arima <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
+arimax <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
 #arima <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("bic")) #1,0,0
+summary(arima)
 
 #pred <- predict(fit,Data_test) ?? 
 
-pred <- predict(arima)
-
+pred <- predict(arimax,n.ahead = 3)
+pred
 plot(forecast(arima,h=3)) # forecast 1 step ahead!!! 
 accuracy(arima)
+
+#naive_mod <- naive(Data[,"gdp"], h = 3)
+#summary(naive_mod)
+cafe.test <- Arima(Data_test[,"gdp"], model=arimax)
+summary(cafe.test)
+#accuracy(cafe.test)
+### loo
+# same as above nur mit arima order selber
+cafe.train <- Arima(Data_train[,"gdp"], order=c(0,0,1))
+cafe.train %>%
+  forecast(h=3) 
+
+cafe.test <- Arima(Data_test[,"gdp"], model=cafe.train)
+summary(cafe.test)
+
+autoplot(forecast(cafe.train))
+#%>%
+  #autoplot() + autolayer(Data_test)
 ```
 # do grid and then different arima models and compare by AIC
 (0,0,0) loop - later if time... 
