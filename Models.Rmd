@@ -227,19 +227,49 @@ accuracy(mod6)
 
 #VAR model mit Varselect all 3 variables
 ```{r}
-Yselect <- VARselect(Data[,4:6])      #lag 2      # computes information criteria
-  lag <- Yselect$selection[1]  # AiC
+Yselect <- VARselect(Data[,4:6],type = "const")   
+#Yselect <- VARselect(Data[,4:6],type = "none") #lag 2      # computes information criteria
+  lag <- Yselect$selection[1]  # AiC, Hq auch 2 , SC auch
   
 lag 
 
 VAR_est <- VAR(y = Data[,4:6], p = lag)
+summary(VAR_est$varresult)
 
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
-forecasts <- predict(VAR_est)
+forecasts <- predict(VAR_est,n.ahead = 3)
 forecasts
 plot(forecasts)
+
+stargazer(VAR_est$varresult)
+```
+
+
+```{r}
+library(vars)
+var.AIC <- VAR(Data[,4:6],  type="none" , lag.max = 5, ic = c("AIC"))
+var.SC <- VAR(Data[,4:6],  type="none" , lag.max = 5, ic = c("SC"))
+var.AIC.c <- VAR(Data[,4:6],  type="const" , lag.max = 5, ic = c("AIC")) ## lag 2
+var.SC.c <- VAR(Data[,4:6],  type="const" , lag.max = 5, ic = c("SC")) ## lag 1
+
+AIC.woc <- cbind(AIC(var.AIC), BIC(var.AIC)) 
+AIC.wc<- cbind(AIC(var.AIC.c), BIC(var.AIC.c)) 
+SC.woc <- cbind(AIC(var.SC), BIC(var.SC)) 
+SC.wc <- cbind(AIC(var.SC.c), BIC(var.SC.c)) 
+
+MC.table <- rbind(AIC.woc, AIC.wc, SC.woc, SC.wc)
+MC.table.names <- rbind("using AIC without constant", "using AIC with constant",
+                        "using SC without constant","using SC with constant")  
+rownames(MC.table)<- MC.table.names
+colnames(MC.table) <- cbind("AIC", "BIC")
+
+print(xtable::xtable(MC.table,caption="Model Choice Results",label="tab:mc"),
+      sanitize.text.function=function(UR.table){UR.table},comment=FALSE)
+
+
+stargazer(VAR_est$varresult)
 
 ```
 
@@ -270,10 +300,12 @@ ser.test
 
 #VAR model mit Varselect gdp and cci 
 ```{r}
-Yselect_2 <- VARselect(Data_train[,1:2])               # computes information criteria
+Yselect_2 <- VARselect(Data_train[,4:5])               # computes information criteria
   lag <- Yselect_2$selection[1]  
-  
+ lag 
 VAR_est_2 <- VAR(y = Data_train[,1:2], p = lag)
+
+summary(VAR_est_2)
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
@@ -287,12 +319,14 @@ plot(forecasts_2)
 ```{r}
 Yselect_3 <- VARselect(Data_train[,c(1,3)])               # computes information criteria
   lag <- Yselect_3$selection[1]  
-  
+lag  
 VAR_est_3 <- VAR(y = Data_train[,c(1,3)], p = lag)
+summary(VAR_est_3)
+
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
-forecasts_3 <- predict(VAR_est_3,Data_test[,c(1,3)])
+forecasts_3 <- predict(VAR_est_3,Data_test[,c(1,3)],n.ahead = 3)
 #accuracy(forecasts)
 
 plot(forecasts_3)
@@ -302,7 +336,7 @@ plot(forecasts_3)
 # AR & VAR model Heik again mit selction criteria (AIC, autoarima, varselect)
 ```{r}
 # AR(1) model 
-arimax <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
+arima <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
 #arima <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("bic")) #1,0,0
 summary(arima)
 
@@ -371,6 +405,8 @@ Repeat this until you have as many observations as you want to predict
 
 not doing here...incorporate new prediction... i do many psequdo OOS forecasts 1 step ahead
 estimate on 1:12, predict 13, incorporate new 13 in data and estimate on 1:13, and predict 14 ?... 
+
+will keine expanding für ARIMA!! AR(1) ist ja nur BM und ich will prüfen ob google data auch oos preduíctive power hat ... cci ersetzen kann besser als Ar(1) ist oder arima..change eifnach exp_ols code into ar(...)
 ```{r}
 expanding_window_OLS <- function(data, dep_var, start = 13){ # change to 12 
   expanding_OLS <- list() # empty vector
