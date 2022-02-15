@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # libraries
 
-```{r}
+```{r, include=FALSE}
 library(readr)
 library(readxl)
 library(dplyr)
@@ -48,6 +48,10 @@ colnames(Data)  <- c("gdp", "cci", "google","gdp_ts", "cci_ts", "google_ts")
 Data <- as.data.frame(Data)
 rownames(Data)  <- as.Date(Date_q)
 
+```
+
+
+```{r}
 # abgerufen final am 11.02.2022
 #Source: https://data.oecd.org/gdp/quarterly-gdp.htm#indicator-chart
 gdp <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[9:71,6:7]
@@ -61,7 +65,7 @@ Data[(Date_q%in%gdp$Date_q),1] <- gdp$value
 Data$gdp_ts <- ts(Data$gdp, start=c(2006,1), end = c(2021,3), frequency = 4)
 ```
 #CCI
-```{r}
+```{r, include=FALSE}
 # abgerufen final am 11.02.2022
 #Source: https://ec.europa.eu/info/business-economy-euro/indicators-statistics/economic-databases/business-and-consumer-surveys/download-business-and-consumer-survey-data/time-series_en#consumers
 
@@ -82,6 +86,7 @@ cci_qtrly <- cci %>% group_by(Date_q) %>%
 cci_qtrly_63 <- cci_qtrly[1:63,]
 Data[(Date_q%in%cci_qtrly_63$Date_q),2] <- (cci_qtrly_63$value)
 Data$cci_ts <- ts(Data$cci, start=c(2006,1), end = c(2021,3), frequency = 4)
+
 ```
 
 # Google
@@ -106,6 +111,9 @@ Data[(Date_q%in%Google_AT_qtrly_63$Date_q),3] <- (Google_AT_qtrly_63$value)
 Data$google_ts <- ts(Data$google, start=c(2006,1), end = c(2021,3), frequency = 4)
 ```
 
+```{r}
+cci_test <- as.data.frame(cci_qtrly[,c(1,3)])
+```
 
 #ADF tests: 
 ```{r}
@@ -169,6 +177,11 @@ Model 2:  $GDP_t = \beta_0 +\beta_1 CCI_{t} +\epsilon_t \qquad  t =1,\dotsc,T$
 ```{r}
 mod2 <- lm(gdp ~ cci, data = Data_train)
 pred_mod2 <- predict(mod2, Data_test)
+
+pred_test <- predict(mod2, cci_test)
+mod2$coefficients
+
+
 summary(mod2)
 accuracy(mod2)
 ```
@@ -226,9 +239,9 @@ sum2 <- data.frame(
   VAR_est$varresult$cci$residuals,
   VAR_est$varresult$google$residuals)
 
-adf.test( VAR_est$varresult$gdp$residuals)
-adf.test(VAR_est$varresult$cci$residuals)
-adf.test(VAR_est$varresult$google$residuals)
+adf.test( VAR_est$varresult$gdp$residuals) # stationary
+adf.test(VAR_est$varresult$cci$residuals) #stationary
+adf.test(VAR_est$varresult$google$residuals)#stationary
 ```
 
 # Normality test
@@ -240,7 +253,7 @@ plot(Normtest)
 ```
 # serial correlation check
 ```{r}
-ser.test <- serial.test(var.UR) # H0: no serial correlation
+ser.test <- serial.test(VAR_est) # H0: no serial correlation
 ser.test
 ```
 
@@ -260,7 +273,6 @@ plot(forecasts)
 
 ```
 
-
 # AR & VAR model Heik again mit selction criteria (AIC, autoarima, varselect)
 ```{r}
 # AR(1) model 
@@ -270,10 +282,17 @@ fit <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("aic"))
 plot(forecast(fit,h=3))
 accuracy(fit)
 ```
+# do grid and then different arima models and compare by AIC
+(0,0,0) loop
+```{r}
+
+```
+
 
 #Extensions
 ```{r}
-
+# maybe policyy uncertainty index
+# unemployment and inflation VAR 
 ```
 
 
@@ -288,7 +307,7 @@ expanding_window_OLS <- function(data, dep_var, start = 13){ # change to 12
   i <- 0
   for(t in start:nrow(data)){
     i <- i+1
-    expanding_OLS[[i]] <- lm(formula = formula_ols_all_rev, data = data[1:(t-1),])
+    expanding_OLS[[i]] <- lm(formula = model, data = data[1:(t-1),])
     resid_OLS[[i]] <- resid(expanding_OLS[[i]])
     predicted_OLS[i] <- predict(expanding_OLS, newdata = data[t,])
     error_OLS[i] <- as.numeric(predicted_OLS[[i]]- data[t,3]) # anpassen je nach dem welchs
@@ -298,14 +317,40 @@ expanding_window_OLS <- function(data, dep_var, start = 13){ # change to 12
 }
 ```
 
+#model1 again
+```{r}
+
+```
+
+#model2 again
+```{r}
+
+```
+
+#model3 again
+```{r}
+
+```
+
+#model4 again
+```{r}
+
+```
+
+#model5 again
+```{r}
+
+```
+
+#model6 again
+```{r}
+
+```
 
 
-# transform to ts all,  aggregate data (new gdP!)
-# do tests for stationarity
-# create one data matrix for Var later
 # write down all models  I want todo (Heik models, 4 lags quarterly data, and tests for lag length with arima and VAR models)
 
-# do simple split OOS forecast and expanding OOS forecast, extension LLOCV
+# do simple split OOS forecast and expanding OOS forecast
 # adjust expanding window functions (for Var, arima)
-
-# Robustness different aggregation 
+# Forecasting with rest of the data... 
+# Robustness different aggregation,  LLOCV
