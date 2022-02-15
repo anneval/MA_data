@@ -455,7 +455,6 @@ tsbox::ts_plot(Google_AT_daily, title = "Austria")
 ```
 see other FILE !
 
-
 ##### Decision on model VAR and VECM and how many lags - macro slides! 
 
 ```{r}

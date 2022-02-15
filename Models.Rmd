@@ -21,8 +21,6 @@ library(tseries)
 library(forecast)
 library(vars)
 library(GGally)
-#library(tseries)
-#library(forecast)
 ```
 
 
@@ -158,6 +156,14 @@ ggpairs(Data[,1:3])
 ```{r}
 Data_train <- Data[1:44,] # 70%
 Data_test <- Data[45:63,] #20%
+
+
+Data_train <- Data[1:12,] 
+Data_test <- Data[13:63,]
+
+
+Data_train <- Data[1:40,] 
+Data_test <- Data[41:63,]
 ```
 
 # Models Heik:
@@ -168,6 +174,7 @@ Model 1: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \epsilon_t  \qquad  t =1,\dotsc,T
 ```{r}
 mod1 <- lm(gdp ~ lag(gdp), data = Data_train)
 pred_mod1 <- predict(mod1, Data_test)
+pred_mod1
 summary(mod1)
 accuracy(mod1)
 #forecast_mod1 <- predict(mod1, n.ahead = 3)
@@ -177,10 +184,8 @@ Model 2:  $GDP_t = \beta_0 +\beta_1 CCI_{t} +\epsilon_t \qquad  t =1,\dotsc,T$
 ```{r}
 mod2 <- lm(gdp ~ cci, data = Data_train)
 pred_mod2 <- predict(mod2, Data_test)
-
-pred_test <- predict(mod2, cci_test)
-mod2$coefficients
-
+#pred_test <- predict(mod2, cci_test)
+#mod2$coefficients
 
 summary(mod2)
 accuracy(mod2)
@@ -206,6 +211,7 @@ Model 5: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 GT_{t,i} + \epsilon_t \qq
 ```{r}
 mod5<- lm(gdp ~ lag(gdp) + google, data = Data_train)
 pred_mod5 <- predict(mod5, Data_test)
+pred_mod5
 summary(mod5)
 accuracy(mod5)
 ```
@@ -220,7 +226,7 @@ accuracy(mod6)
 
 #VAR model mit Varselect all 3 variables
 ```{r}
-Yselect <- VARselect(Data_train[,1:3])               # computes information criteria
+Yselect <- VARselect(Data_train[,1:3])      #lag 10         # computes information criteria
   lag <- Yselect$selection[1]  # AiC
   
 VAR_est <- VAR(y = Data_train[,1:3], p = lag)
@@ -257,38 +263,68 @@ ser.test <- serial.test(VAR_est) # H0: no serial correlation
 ser.test
 ```
 
-#VAR model mit Varselect all 3 variables
+#VAR model mit Varselect gdp and cci 
 ```{r}
-Yselect <- VARselect(Data_train[,1:2])               # computes information criteria
-  lag <- Yselect$selection[1]  
+Yselect_2 <- VARselect(Data_train[,1:2])               # computes information criteria
+  lag <- Yselect_2$selection[1]  
   
-VAR_est <- VAR(y = Data_train[,1:3], p = lag)
+VAR_est_2 <- VAR(y = Data_train[,1:2], p = lag)
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
-forecasts <- predict(VAR_est,Data_test[,1:3])
-accuracy(forecasts)
+forecasts_2 <- predict(VAR_est_2,Data_test[,1:2])
 
-plot(forecasts)
+plot(forecasts_2)
+
+```
+
+#VAR model mit Varselect gdp and google 
+```{r}
+Yselect_3 <- VARselect(Data_train[,c(1,3)])               # computes information criteria
+  lag <- Yselect_3$selection[1]  
+  
+VAR_est_3 <- VAR(y = Data_train[,c(1,3)], p = lag)
+#summary(VAR_est$varresult$gdp)$adj.r.squared
+#summary(VAR_est$varresult$cci)$adj.r.squared
+#summary(VAR_est$varresult$google)$adj.r.squared
+forecasts_3 <- predict(VAR_est_3,Data_test[,c(1,3)])
+#accuracy(forecasts)
+
+plot(forecasts_3)
 
 ```
 
 # AR & VAR model Heik again mit selction criteria (AIC, autoarima, varselect)
 ```{r}
 # AR(1) model 
-fit <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("aic"))
-
+arima <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("aic"))
 #pred <- predict(fit,Data_test) ?? 
-plot(forecast(fit,h=3))
-accuracy(fit)
+
+pred <- predict(arima)
+
+plot(forecast(arima,h=3)) # forecast 1 step ahead!!! 
+accuracy(arima)
 ```
 # do grid and then different arima models and compare by AIC
-(0,0,0) loop
+(0,0,0) loop - later if time... 
 ```{r}
+# works only problem is how do i safe each ar model to each row in list ar.. [[]] maybe one more loop und length(..)
+
+grid_test <- expand.grid(p = seq(0, 4, by= 1),
+                            q= seq(0, 4, by= 1),
+                                   d = seq(0, 4, by= 1))
+
+ar_model <- function(data){
+  ar <- list()
+  for (p in 1:2) for (d in 1:2) for (q in 1:2) {
+  ar[] <- arima(data[,1],order = c(p,d, q),include.mean = TRUE)
+  #print(c(p,d,q))
+}
+  return(ar)
+}
+test <- ar_model(data = Data_train)
 
 ```
-
-
 #Extensions
 ```{r}
 # maybe policyy uncertainty index
@@ -297,6 +333,7 @@ accuracy(fit)
 
 
 # Expanding window estimation instead of fixed test and train data set 
+# average over all 
 
 ```{r}
 expanding_window_OLS <- function(data, dep_var, start = 13){ # change to 12 
@@ -305,45 +342,107 @@ expanding_window_OLS <- function(data, dep_var, start = 13){ # change to 12
   resid_OLS <- list()
   error_OLS <- c() 
   i <- 0
-  for(t in start:nrow(data)){
+  for(t in start:nrow(data)){#t in 13:51
     i <- i+1
-    expanding_OLS[[i]] <- lm(formula = model, data = data[1:(t-1),])
+    expanding_OLS[[i]] <- lm(formula = model, data = data[1:(t-1),]) # start at 13-1 so 12! 
     resid_OLS[[i]] <- resid(expanding_OLS[[i]])
-    predicted_OLS[i] <- predict(expanding_OLS, newdata = data[t,])
-    error_OLS[i] <- as.numeric(predicted_OLS[[i]]- data[t,3]) # anpassen je nach dem welchs
-    Summary_OLS <- list(expanding_OLS,predicted_OLS, resid_OLS,error_OLS)
+    predicted_OLS[[i]] <- predict(expanding_OLS[[i]],newdata = data[t,])#[t,])
+    error_OLS[i]  <- as.numeric(predicted_OLS[[i]] - data[t,]) # anpassen je nach dem welchs
+    Summary_OLS <- list(expanding_OLS,predicted_OLS,resid_OLS,error_OLS)
   }
   return(Summary_OLS)
 }
 ```
 
-#model1 again
+#model1 expanding estimation
 ```{r}
+dep_var <- "gdp"
+model = gdp ~ lag(gdp)
 
+gdp_lag <- lag(Data$gdp)
+gdp_lag <- as.data.frame(gdp_lag)
+
+expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
+pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
+
+### error in and OOS 
+error_OLS <- expanding_OLS[[4]]
+error_OLS <-error_OLS[!is.na(error_OLS)]
+MAE_OLS_OOS <- mean(abs(error_OLS))
+MAE_OLS_OOS
+RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2)) 
+RMSE_OLS_OOS
+MSE_OLS <- mean(error_OLS^2) 
+MSE_OLS
 ```
 
 #model2 again
 ```{r}
+model = gdp ~ cci
+expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
 
+pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) 
+colnames(pred) <- c("value")
+rownames(pred) <- Date_q_pred
+Date_q_pred <- Date_q[13:63]
+
+pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
+ts.plot(pred)
+
+### error in and OOS 
+error_OLS <- expanding_OLS[[4]]
+error_OLS <-error_OLS[!is.na(error_OLS)]
+MAE_OLS_OOS <- mean(abs(error_OLS))
+MAE_OLS_OOS
+RMSE_OLS_OOS    <- sqrt(mean(error_OLS^2)) 
+RMSE_OLS_OOS
+MSE_OLS <- mean(error_OLS^2) 
+MSE_OLS
 ```
 
 #model3 again
 ```{r}
+model = gdp ~ google
+expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
 
+pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) 
+colnames(pred) <- c("value")
+rownames(pred) <- Date_q_pred
+Date_q_pred <- Date_q[13:63]
+
+pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
+ts.plot(pred)
+
+### error in and OOS 
+error_OLS <- expanding_OLS[[4]]
+error_OLS <-error_OLS[!is.na(error_OLS)]
+MAE_OLS_OOS <- mean(abs(error_OLS))
+MAE_OLS_OOS
+RMSE_OLS_OOS    <- sqrt(mean(error_OLS^2)) 
+RMSE_OLS_OOS
+MSE_OLS <- mean(error_OLS^2) 
+MSE_OLS
 ```
 
 #model4 again
 ```{r}
+model = gdp ~ lag(gdp) + cci
+expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
 
 ```
 
 #model5 again
 ```{r}
+model = gdp ~ lag(gdp) + google
+expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
 
 ```
 
 #model6 again
 ```{r}
+model = gdp ~ lag(gdp) + cci + google
+expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
+
 
 ```
 
