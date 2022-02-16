@@ -30,6 +30,8 @@ library(tseries)
 library(forecast)
 library(vars)
 library(GGally)
+library(Metrics)
+library(caret)
 ```
 
 
@@ -55,6 +57,7 @@ colnames(Data)  <- c("gdp", "cci", "google","gdp_ts", "cci_ts", "google_ts")
 Data <- as.data.frame(Data)
 rownames(Data)  <- as.Date(Date_q)
 
+Data$gdp_lag <- lag(Data$gdp)
 ```
 
 
@@ -119,7 +122,20 @@ Data$google_ts <- ts(Data$google, start=c(2006,1), end = c(2021,3), frequency = 
 ```
 
 ```{r}
-#cci_test <- as.data.frame(cci_qtrly[,c(1,3)])
+# descriptives? do for all 3 ... and graphs 
+sum_train_2009_2016 <- as.data.frame(train_200901_201612) %>% 
+                        summarise(min. = min(PM10_0),
+                                  q25 = quantile(PM10_0, 0.25),
+                                  avg = round(mean(PM10_0), 2),
+                                  median = median(PM10_0),
+                                  max. = max(PM10_0),
+                                  q75 = quantile(PM10_0, 0.75),
+                                  sd   = round(sd(PM10_0), 2))  %>%
+                        mutate(period = "2009-01-2016-12")
+
+periods_summary <- bind_rows(sum_train_2009_2016, sum_train_2014_2016, sum_train_201610_201612, sum_test_201701_201709, sum_validation_201710_201712) %>%
+                  select(period, everything()) # I move the "period" column to the first position
+
 ```
 
 #ADF tests: 
@@ -254,7 +270,7 @@ stargazer(VAR_est$varresult)
 #### OOS!Accuracy
 
 ```{r}
-v <- VAR(Data_train[,1:3], type="const", p=2)
+v <- VAR(Data[,c(1,3)], type="const", p=2)
 #v <- vecm16var
 #v <- vecm16
 horizon= 3
@@ -263,8 +279,9 @@ res <- residuals(v)
 fits <- fitted(v)
 lags =2
 
-
-rmse(Data_train[,1],p$fcst[[1]][,"fcst"]) #1 for gdp 
+library(Metrics)
+x <- rmse(Data[,1],p$fcst[[1]][,"fcst"]) #1 for gdp 
+x
 
 for(i in 1:3){
   fc <- structure(list(mean=p$fcst[[i]][,"fcst"], x=Data_train[,i],
@@ -359,7 +376,6 @@ forecasts_3 <- predict(VAR_est_3,Data_test[,c(1,3)],n.ahead = 3)
 #accuracy(forecasts)
 
 plot(forecasts_3)
-
 ```
 
 # AR & VAR model Heik again mit selction criteria (AIC, autoarima, varselect)
@@ -367,15 +383,39 @@ plot(forecasts_3)
 # AR(1) model 
 arima <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
 #arima <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("bic")) #1,0,0
-summary(arima)
+summary(arima) # Ins sample RMSE! 
+y_train <- forecast(arima, h = 3)$fitted # We make a forecast one hour ahead and we extract the fitted values from the object forecast.
+x_train <- Data_train[,"gdp"]
+rss <- sum((y_train - x_train) ** 2)
+tss <- sum((x_train - mean(x_train)) ** 2)
+R_squared <- 1 - rss/tss
+paste(c("R-squared:", round(R_squared, 4)))
 
-#pred <- predict(fit,Data_test) ?? 
+##### apply model to test set
 
-pred <- predict(arimax,n.ahead = 3)
-pred
-plot(forecast(arima,h=3)) # forecast 1 step ahead!!! 
-accuracy(arima)
+y_pred <- forecast(Data_test[,"gdp"], model = arima, h=3)$fitted # We call the forecast function passing the testing data through the ARIMA model fitted with the training data and we extract the fitted values.
+y_test <- Data_test[,"gdp"]
+sd_test <- sd(y_test)
+RMSE <- rmse(y_test, y_pred)
 
+MAE <- mae(y_test, y_pred)
+
+rss <- sum((y_test - y_pred) ** 2)
+tss <- sum((y_test - mean(y_test)) ** 2)
+R_squared <- 1 - rss/tss
+
+
+#arima.OOS <- Arima(Data_test[,"gdp"], model=arima)
+#summary(arima.OOS)   # RMSE 5,06.
+
+#pred <- predict(arima.OOS,n.ahead = 3) # same !
+#fore <- forecast(arima.OOS,h=3) # same !
+plot(forecast(y_pred,h=3)) # forecast 1Q  ahead!!! 
+
+```
+
+### just code examples delete
+```{r}
 #naive_mod <- naive(Data[,"gdp"], h = 3)
 #summary(naive_mod)
 cafe.test <- Arima(Data_test[,"gdp"], model=arimax)
@@ -394,8 +434,9 @@ autoplot(forecast(cafe.train))
 #%>%
   #autoplot() + autolayer(Data_test)
 ```
+
 # do grid and then different arima models and compare by AIC
-(0,0,0) loop - later if time... 
+(0,0,0) loop - later if time... not needed dont want best model gdp want impact of google in gdp forecast
 ```{r}
 # works only problem is how do i safe each ar model to each row in list ar.. [[]] maybe one more loop und length(..)
 
@@ -414,11 +455,7 @@ ar_model <- function(data){
 test <- ar_model(data = Data_train)
 
 ```
-#Extensions
-```{r}
-# maybe policyy uncertainty index
-# unemployment and inflation VAR 
-```
+
 
 
 # Expanding window estimation instead of fixed test and train data set 
@@ -436,6 +473,9 @@ not doing here...incorporate new prediction... i do many psequdo OOS forecasts 1
 estimate on 1:12, predict 13, incorporate new 13 in data and estimate on 1:13, and predict 14 ?... 
 
 will keine expanding für ARIMA!! AR(1) ist ja nur BM und ich will prüfen ob google data auch oos preduíctive power hat ... cci ersetzen kann besser als Ar(1) ist oder arima..change eifnach exp_ols code into ar(...)
+
+##DO expanding for laged models!!! 
+
 ```{r}
 expanding_window_OLS <- function(data, dep_var, start = 13){ # change to 12 
   expanding_OLS <- list() # empty vector
@@ -458,13 +498,18 @@ expanding_window_OLS <- function(data, dep_var, start = 13){ # change to 12
 #model1 expanding estimation
 ```{r}
 dep_var <- "gdp"
-model = gdp ~ lag(gdp)
+model = gdp ~ gdp_lag
 
-gdp_lag <- lag(Data$gdp)
-gdp_lag <- as.data.frame(gdp_lag)
+expanding_OLS <- expanding_window_OLS(Data[2:63,], dep_var, start = 13)
 
-expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
+#predictions
 pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
+colnames(pred) <- c("value")
+rownames(pred) <- Date_q_pred[2:51]
+Date_q_pred <- Date_q[13:63]
+
+pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
+ts.plot(pred)
 
 ### error in and OOS 
 error_OLS <- expanding_OLS[[4]]
@@ -489,7 +534,8 @@ Date_q_pred <- Date_q[13:63]
 pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
-### error in and OOS 
+### error IS? and OOS 
+
 error_OLS <- expanding_OLS[[4]]
 error_OLS <-error_OLS[!is.na(error_OLS)]
 MAE_OLS_OOS <- mean(abs(error_OLS))
@@ -498,6 +544,13 @@ RMSE_OLS_OOS    <- sqrt(mean(error_OLS^2))
 RMSE_OLS_OOS
 MSE_OLS <- mean(error_OLS^2) 
 MSE_OLS
+
+# R-Sq 
+actual <- Data[13:63,"gdp"]
+rss <- sum((pred - actual) ^ 2)  ## residual sum of squares
+tss <- sum((actual - mean(actual)) ^ 2)  ## total sum of squares
+rsq <- 1 - rss/tss
+rsq
 ```
 
 #model3 again
@@ -538,27 +591,81 @@ MSE_OLS
 ```
 
 #model4 again
-```{r}
-model = gdp ~ lag(gdp) + cci
-expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
+```{r, warning=F}
+model = gdp ~ gdp_lag + cci
+expanding_OLS <- expanding_window_OLS(Data[2:63,], dep_var, start = 13)
 
+#predictions
+pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
+colnames(pred) <- c("value")
+rownames(pred) <- Date_q_pred[2:51]
+Date_q_pred <- Date_q[13:63]
+
+pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
+ts.plot(pred)
+
+# Errors
+error_OLS <- expanding_OLS[[4]]
+error_OLS <-error_OLS[!is.na(error_OLS)]
+MAE_OLS_OOS <- mean(abs(error_OLS))
+MAE_OLS_OOS
+RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2)) 
+RMSE_OLS_OOS
+MSE_OLS <- mean(error_OLS^2) 
+MSE_OLS
 ```
 
 #model5 again
-```{r}
-model = gdp ~ lag(gdp) + google
-expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
+```{r, warning==F}
+model = gdp ~ gdp_lag + google
+expanding_OLS <- expanding_window_OLS(Data[2:63,], dep_var, start = 13)
 
+#predictions
+pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
+colnames(pred) <- c("value")
+rownames(pred) <- Date_q_pred[2:51]
+Date_q_pred <- Date_q[13:63]
+
+pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
+ts.plot(pred)
+
+# Errors
+error_OLS <- expanding_OLS[[4]]
+error_OLS <-error_OLS[!is.na(error_OLS)]
+MAE_OLS_OOS <- mean(abs(error_OLS))
+MAE_OLS_OOS
+RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2)) 
+RMSE_OLS_OOS
+MSE_OLS <- mean(error_OLS^2) 
+MSE_OLS
 ```
 
 #model6 again
-```{r}
-model = gdp ~ lag(gdp) + cci + google
-expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
+```{r, warning=F}
+model = gdp ~ gdp_lag + cci + google
+expanding_OLS <- expanding_window_OLS(Data[2:63,], dep_var, start = 13)
 
+#predictions
+pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
+colnames(pred) <- c("value")
+rownames(pred) <- Date_q_pred[2:51]
+Date_q_pred <- Date_q[13:63]
 
+pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
+ts.plot(pred)
+
+# Errors
+error_OLS <- expanding_OLS[[4]]
+error_OLS <-error_OLS[!is.na(error_OLS)]
+MAE_OLS_OOS <- mean(abs(error_OLS))
+MAE_OLS_OOS
+RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2)) 
+RMSE_OLS_OOS
+MSE_OLS <- mean(error_OLS^2) 
+MSE_OLS
 ```
 
+### as extension create consumer index.. later!! once written all maybe 
 
 # write down all models  I want todo (Heik models, 4 lags quarterly data, and tests for lag length with arima and VAR models)
 
@@ -566,3 +673,35 @@ expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
 # adjust expanding window functions (for Var, arima)
 # Forecasting with rest of the data... 
 # Robustness different aggregation,  LLOCV
+#durbinWatsonTest, cumsum
+
+#Extensions
+```{r}
+# different data aggregation?
+# maybe policyy uncertainty index
+# unemployment and inflation VAR
+```
+
+
+```{r}
+ctrl <- trainControl(method = "LOOCV")
+
+# lag problem again... easiest prob do to new data frame and add it as a variables
+model1_CV <- train(gdp ~ gdp_lag, data = Data[2:63,], method = "lm", trControl = ctrl)
+print(model1_CV)
+
+model2_CV <- train(gdp ~ cci, data = Data, method = "lm", trControl = ctrl)
+print(model2_CV)
+
+model3_CV <- train(gdp ~ google, data = Data, method = "lm", trControl = ctrl)
+print(model3_CV)
+
+model4_CV <- train(gdp ~ gdp_lag + cci, data = Data[2:63,], method = "lm", trControl = ctrl)
+print(model4_CV)
+
+model5_CV <- train(gdp ~ gdp_lag + google, data = Data[2:63,], method = "lm", trControl = ctrl)
+print(model5_CV)
+
+model6_CV <- train(gdp ~ gdp_lag + google + cci, data = Data[2:63,], method = "lm", trControl = ctrl)
+print(model6_CV)
+```

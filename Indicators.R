@@ -36,15 +36,17 @@ proc_index(keywords,"AT", "trendecon")
 #proc_keyword_init("Testcenter",geo, from = "2014-01-01")
 #proc_keyword_init("Impfung",geo, from = "2014-01-01")
 #proc_keyword_init("Lockdown",geo, from = "2014-01-01")
+#pandemie
 
 ## add index to other file!!!! 
 #proc_index(keywords,"AT", "")
 
 
 # Consumption
-#consumption <- c("")
+#consumption <- c("") # wirtschaft, Klamotten, Autokauf, Electorics,Food & Drink, Furniture 
 
 # Jobs
-#unemployment <- c("Jobagentur, Arbeitslosengeld")
+#unemployment <- c("Jobagentur, Arbeitslosengeld") jobcenter, Coronakrise, unemployment
 
-#housing <- c("Baufinanzierung")
+#housing <- c("Baufinanzierung") immobilienmarkt, immobilenagentur “real estate listings” immobilienscout24
+#housing kredit

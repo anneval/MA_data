@@ -871,18 +871,18 @@ MSE_OLS_IS
 
 #TO DO 
 
-# but forecast!!!
+# but forecast!!! done... can do manually with mine if i wanted to... can i incorpate "new older data in quarter aggregates??
 #to do get dates right! grpah assign direkt ts dates.. 
 # hiniken paper 
-# do in month.y...
-# do daily incidcator with own github
+# do in month.y...no
+# do daily incidcator with own github, done 
 
-### after models 
+### after models  - have to check for "my" expanding window models! 
 Homoskedasticity assumption
 Zero-mean assumption:
 No-autocorrelation assumption:
 Normality assumption
-structural shocks !!!
+structural shocks !!! cumsum still check ... 
 
 ### Look at Correlation (done), linearity, normality, stationarity (half done, interpret), summaries
 
