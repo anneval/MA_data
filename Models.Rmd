@@ -4,7 +4,7 @@ author: "Anne Valder"
 date: "2/12/2022"
 output: html_document
 ---
-
+TO DO: runterschreiben was wie und dann seh ich welche Modelle... 
 Models I have:
 
 - AR(1) and standard OLS (split data IS and OOS) (5x)
@@ -235,15 +235,44 @@ lag
 
 VAR_est <- VAR(y = Data[,4:6], p = lag)
 summary(VAR_est$varresult)
+library(Metrics)
+
+
+rmse(Data[,4:6],forecasts)
 
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
-forecasts <- predict(VAR_est,n.ahead = 3)
+forecasts <- predict(VAR_est, )
 forecasts
 plot(forecasts)
 
 stargazer(VAR_est$varresult)
+```
+
+
+#### OOS!Accuracy
+
+```{r}
+v <- VAR(Data_train[,1:3], type="const", p=2)
+#v <- vecm16var
+#v <- vecm16
+horizon= 3
+p <- predict(v, n.ahead=horizon)
+res <- residuals(v)
+fits <- fitted(v)
+lags =2
+
+
+rmse(Data_train[,1],p$fcst[[1]][,"fcst"]) #1 for gdp 
+
+for(i in 1:3){
+  fc <- structure(list(mean=p$fcst[[i]][,"fcst"], x=Data_train[,i],
+                       fitted=c(rep(NA,lags),fits[,i])),class="forecast")
+  acc_pes <- accuracy(fc,Data_test[,1])
+  acc_Dune <- accuracy(fc,Data_test[,2])
+  acc_cpi <- accuracy(fc,Data_test[,3])
+}
 ```
 
 
