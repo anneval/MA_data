@@ -508,7 +508,7 @@ colnames(pred) <- c("value")
 rownames(pred) <- Date_q_pred[2:51]
 Date_q_pred <- Date_q[13:63]
 
-pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
+pred <- as.ts(pred, start=c(2009,2), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 ### error in and OOS 
@@ -520,6 +520,13 @@ RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2))
 RMSE_OLS_OOS
 MSE_OLS <- mean(error_OLS^2) 
 MSE_OLS
+# IS error terms----------------------------------------------------------------
+# IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
+resid_OLS <- expanding_OLS[[3]]
+final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+
+RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
+RMSE_OLS_IS
 ```
 #model2 again
 ```{r}
@@ -551,6 +558,14 @@ rss <- sum((pred - actual) ^ 2)  ## residual sum of squares
 tss <- sum((actual - mean(actual)) ^ 2)  ## total sum of squares
 rsq <- 1 - rss/tss
 rsq
+
+# IS error terms----------------------------------------------------------------
+# IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
+resid_OLS <- expanding_OLS[[3]]
+final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+
+RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
+RMSE_OLS_IS
 ```
 
 #model3 again
@@ -588,6 +603,13 @@ RMSE_OLS_OOS    <- sqrt(mean(error_x^2))
 RMSE_OLS_OOS
 MSE_OLS <- mean(error_x^2) 
 MSE_OLS
+# IS error terms----------------------------------------------------------------
+# IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
+resid_OLS <- expanding_OLS[[3]]
+final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+
+RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
+RMSE_OLS_IS
 ```
 
 #model4 again
@@ -601,7 +623,7 @@ colnames(pred) <- c("value")
 rownames(pred) <- Date_q_pred[2:51]
 Date_q_pred <- Date_q[13:63]
 
-pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
+pred <- as.ts(pred, start=c(2009,2), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 # Errors
@@ -613,6 +635,13 @@ RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2))
 RMSE_OLS_OOS
 MSE_OLS <- mean(error_OLS^2) 
 MSE_OLS
+# IS error terms----------------------------------------------------------------
+# IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
+resid_OLS <- expanding_OLS[[3]]
+final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+
+RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
+RMSE_OLS_IS
 ```
 
 #model5 again
@@ -626,7 +655,7 @@ colnames(pred) <- c("value")
 rownames(pred) <- Date_q_pred[2:51]
 Date_q_pred <- Date_q[13:63]
 
-pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
+pred <- as.ts(pred, start=c(2009,2), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 # Errors
@@ -638,6 +667,13 @@ RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2))
 RMSE_OLS_OOS
 MSE_OLS <- mean(error_OLS^2) 
 MSE_OLS
+# IS error terms----------------------------------------------------------------
+# IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
+resid_OLS <- expanding_OLS[[3]]
+final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+
+RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
+RMSE_OLS_IS
 ```
 
 #model6 again
@@ -651,7 +687,7 @@ colnames(pred) <- c("value")
 rownames(pred) <- Date_q_pred[2:51]
 Date_q_pred <- Date_q[13:63]
 
-pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
+pred <- as.ts(pred, start=c(2009,2), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 # Errors
@@ -663,6 +699,14 @@ RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2))
 RMSE_OLS_OOS
 MSE_OLS <- mean(error_OLS^2) 
 MSE_OLS
+
+# IS error terms----------------------------------------------------------------
+# IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
+resid_OLS <- expanding_OLS[[3]]
+final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+
+RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
+RMSE_OLS_IS
 ```
 
 ### as extension create consumer index.. later!! once written all maybe 

@@ -679,7 +679,6 @@ expanding_window_OLS <- function(data, dep_var, start = 13){ # change to 12
   return(Summary_OLS)
 }
 ```
-
 #Model 1
 ```{r}
 # test vgl ols hand written 4 lags mit arima hier 
@@ -697,9 +696,12 @@ summary(AR_GDP4)
 AR_GDP1 <- arima(Data$GDPGR, order = c(1,0,0))
 summary(AR_GDP1)
 
+```
+
+```{r}
+
 indep_var <- c("GDP_lag")
 formula_ols_all_rev = GDP ~ GDP_lag
-
 expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13) # muss datenset cutten weg LAG! nicht 13 damit erstes saple 12 hat???
 
 pred <- do.call(rbind.data.frame, expanding_OLS[[2]])
