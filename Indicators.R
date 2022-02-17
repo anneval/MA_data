@@ -45,7 +45,9 @@ consumption <- c("Shopping", "Klamotten", "Autokauf", "Restaurant", "Möbel") # 
 
 #proc_keyword_init("Shopping",geo, from = "2014-01-01") 
 #proc_keyword_init("Klamotten",geo, from = "2014-01-01") 
-proc_keyword_init("Autokauf",geo, from = "2014-01-01") 
+#proc_keyword_init("Autokauf",geo, from = "2014-01-01") 
+#next
+
 #proc_keyword_init("Restaurant",geo, from = "2014-01-01") 
 #proc_keyword_init("Möbel",geo, from = "2014-01-01") 
 
@@ -69,4 +71,4 @@ housing <- c("Immobilienfinanzierung", "immobilienscout24", "Immobilienmarkt","I
 #proc_keyword_init("Immobilienmarkt",geo, from = "2014-01-01") 
 #proc_keyword_init("Immobilienmakler",geo, from = "2014-01-01") 
 
-proc_index(housing,"AT", "housing")
+#proc_index(housing,"AT", "housing")
