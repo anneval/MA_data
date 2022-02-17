@@ -27,14 +27,32 @@ proc_trendecon_at <- function() {
     "Möbel"
   )
   
+  kw_unemployment <- c(
+    "Jobagentur",
+    "Arbeitslosengeld",
+    "Jobcenter",
+    "arbeitslos"
+  )
+  
+  kw_housing <- c(
+    "Immobilienfinanzierung",
+    "immobilienscout24",
+    "Immobilienmarkt",
+    "Immobilienmakler"
+  )
+
   proc_index(kw_trendecon, "AT", 'trendecon')
   proc_index(kw_corona, "AT", 'corona')
   proc_index(kw_consumption, "AT", 'consumption')
-  
+  proc_index(kw_unemployment, "AT", 'unemployment')
+  proc_index(kw_housing, "AT", 'housing')
   
   indices_in_production <- c(
     "trendecon",
-    "corona"
+    "corona",
+    "consumption",
+    "unemployment",
+    "housing"
   )
 
   # copy to data/at

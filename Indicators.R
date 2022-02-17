@@ -44,12 +44,12 @@ proc_index(corona,"AT", "corona")
 consumption <- c("Shopping", "Klamotten", "Autokauf", "Restaurant", "Möbel") # wirtschaft, Klamotten, Autokauf, Electorics,Food & Drink, Furniture 
 
 #proc_keyword_init("Shopping",geo, from = "2014-01-01") 
-proc_keyword_init("Klamotten",geo, from = "2014-01-01") 
+#proc_keyword_init("Klamotten",geo, from = "2014-01-01") 
 proc_keyword_init("Autokauf",geo, from = "2014-01-01") 
-proc_keyword_init("Restaurant",geo, from = "2014-01-01") 
-proc_keyword_init("Möbel",geo, from = "2014-01-01") 
+#proc_keyword_init("Restaurant",geo, from = "2014-01-01") 
+#proc_keyword_init("Möbel",geo, from = "2014-01-01") 
 
-proc_index(consumption,"AT", "consumption")
+#proc_index(consumption,"AT", "consumption")
 
 # Unemployment
 unemployment <- c("Jobagentur", "Arbeitslosengeld", "Jobcenter", "arbeitslos")
@@ -59,7 +59,7 @@ unemployment <- c("Jobagentur", "Arbeitslosengeld", "Jobcenter", "arbeitslos")
 #proc_keyword_init("Jobcenter",geo, from = "2014-01-01") 
 #proc_keyword_init("arbeitslos",geo, from = "2014-01-01") 
 
-proc_index(unemployment,"AT", "unemployment")
+#proc_index(unemployment,"AT", "unemployment")
 
 # Housing
 housing <- c("Immobilienfinanzierung", "immobilienscout24", "Immobilienmarkt","Immobilienmakler") #“real estate listings” 
