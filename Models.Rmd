@@ -19,7 +19,7 @@ TO DO:
 - VAR mit test and train!!!! done
 - VAR mit expanding... done
 - tests on other models as well....! 
-- overview of results...!
+- overview of results...! tables
 - Do new model with consumer google index statt economic google index? - initialise new indices..
 
 Question: 
