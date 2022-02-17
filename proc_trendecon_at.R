@@ -10,11 +10,31 @@ proc_trendecon_at <- function() {
     "arbeitslos",
     "Insolvenz"
   )
-
+  
+  kw_corona <- c(
+    "Inzidenz",
+    "Coronafälle",
+    "Testcenter",
+    "Lockdown",
+    "Pandemie"
+  )
+  
+  kw_consumption <- c(
+    "Shopping",
+    "Klamotten",
+    "Autokauf",
+    "Restaurant",
+    "Möbel"
+  )
+  
   proc_index(kw_trendecon, "AT", 'trendecon')
-
+  proc_index(kw_corona, "AT", 'corona')
+  proc_index(kw_consumption, "AT", 'consumption')
+  
+  
   indices_in_production <- c(
-    "trendecon"
+    "trendecon",
+    "corona"
   )
 
   # copy to data/at

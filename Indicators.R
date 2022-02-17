@@ -29,24 +29,44 @@ proc_index(keywords,"AT", "trendecon")
 
 ###### ADD FURTHER INDICES! (CORONA, CONSUMPTION, UNEMPLOYMENT) Add to file in GIT! 
 
-#corona <- c("Inzidenz", "Coronafälle", "Testcenter", "Impfung", "Lockdown")
+corona <- c("Inzidenz", "Coronafälle", "Testcenter", "Lockdown", "Pandemie")
 
 #proc_keyword_init("Inzidenz",geo, from = "2014-01-01") 
 #proc_keyword_init("Coronafälle",geo, from = "2014-01-01")
 #proc_keyword_init("Testcenter",geo, from = "2014-01-01")
-#proc_keyword_init("Impfung",geo, from = "2014-01-01")
+#proc_keyword_init("Impfung",geo, from = "2014-01-01") not included
 #proc_keyword_init("Lockdown",geo, from = "2014-01-01")
-#pandemie
+#proc_keyword_init("Pandemie",geo, from = "2014-01-01")
 
-## add index to other file!!!! 
-#proc_index(keywords,"AT", "")
-
+proc_index(corona,"AT", "corona")
 
 # Consumption
-#consumption <- c("") # wirtschaft, Klamotten, Autokauf, Electorics,Food & Drink, Furniture 
+consumption <- c("Shopping", "Klamotten", "Autokauf", "Restaurant", "Möbel") # wirtschaft, Klamotten, Autokauf, Electorics,Food & Drink, Furniture 
 
-# Jobs
-#unemployment <- c("Jobagentur, Arbeitslosengeld") jobcenter, Coronakrise, unemployment
+#proc_keyword_init("Shopping",geo, from = "2014-01-01") 
+proc_keyword_init("Klamotten",geo, from = "2014-01-01") 
+proc_keyword_init("Autokauf",geo, from = "2014-01-01") 
+proc_keyword_init("Restaurant",geo, from = "2014-01-01") 
+proc_keyword_init("Möbel",geo, from = "2014-01-01") 
 
-#housing <- c("Baufinanzierung") immobilienmarkt, immobilenagentur “real estate listings” immobilienscout24
-#housing kredit
+proc_index(consumption,"AT", "consumption")
+
+# Unemployment
+unemployment <- c("Jobagentur", "Arbeitslosengeld", "Jobcenter", "arbeitslos")
+
+#proc_keyword_init("Jobagentur",geo, from = "2014-01-01") 
+#proc_keyword_init("Arbeitslosengeld",geo, from = "2014-01-01") 
+#proc_keyword_init("Jobcenter",geo, from = "2014-01-01") 
+#proc_keyword_init("arbeitslos",geo, from = "2014-01-01") 
+
+proc_index(unemployment,"AT", "unemployment")
+
+# Housing
+housing <- c("Immobilienfinanzierung", "immobilienscout24", "Immobilienmarkt","Immobilienmakler") #“real estate listings” 
+
+#proc_keyword_init("Immobilienfinanzierung",geo, from = "2014-01-01") 
+#proc_keyword_init("immobilienscout24",geo, from = "2014-01-01") 
+#proc_keyword_init("Immobilienmarkt",geo, from = "2014-01-01") 
+#proc_keyword_init("Immobilienmakler",geo, from = "2014-01-01") 
+
+proc_index(housing,"AT", "housing")
