@@ -5,12 +5,26 @@ date: "2/12/2022"
 output: html_document
 ---
 TO DO: runterschreiben was wie und dann seh ich welche Modelle... 
+
 Models I have:
 
-- AR(1) and standard OLS (split data IS and OOS) (5x)
-- AR(1) and expanding estimation  (IS and OOS) - party missing (5x) - cannot compare to others sample set
-- auto.arima model (lag selection automatic, and 4)
-- VAR model (lag selection automatic, and 4)
+- AR(1) and standard OLS (split data IS and OOS) (6x)
+- AR(1) and expanding estimation  (IS and OOS) (6x) - cannot compare to others sample set, correct since incoporate predcition in new train data?
+- auto.arima model (lag selection automatic, and 4 (still have to do)) used test and train, explanation on pacf..)
+- VAR model (lag selection automatic (and pacf and acf), and 4)
+
+TO DO: 
+
+- forecast aus expanding
+- VAR mit test and train!!!! done
+- VAR mit expanding... 
+- tests on other models as well....! 
+- overview of results...!
+- Do new model with consumer google index statt economic google index? - initialise new indices..
+
+Question: 
+- incorporate further data or not? 
+- is expanding window correct?
 
 goal which is best at forecasting GDP! (measured by out of sample accuracy)
 
@@ -56,8 +70,6 @@ Data   <- matrix(NA,bigT,M)
 colnames(Data)  <- c("gdp", "cci", "google","gdp_ts", "cci_ts", "google_ts") 
 Data <- as.data.frame(Data)
 rownames(Data)  <- as.Date(Date_q)
-
-Data$gdp_lag <- lag(Data$gdp)
 ```
 
 
@@ -119,6 +131,12 @@ Google_AT_qtrly <- Google_AT_daily %>% group_by(Date_q) %>%
 Google_AT_qtrly_63 <- Google_AT_qtrly[1:63,]
 Data[(Date_q%in%Google_AT_qtrly_63$Date_q),3] <- (Google_AT_qtrly_63$value)
 Data$google_ts <- ts(Data$google, start=c(2006,1), end = c(2021,3), frequency = 4)
+```
+
+# dataframe for later models 
+```{r}
+Data_Var <- Data[,1:3]
+Data$gdp_lag <- lag(Data$gdp)
 ```
 
 ```{r}
@@ -193,7 +211,7 @@ mod1 <- lm(gdp ~ lag(gdp), data = Data_train)
 pred_mod1 <- predict(mod1, Data_test)
 pred_mod1
 summary(mod1)
-accuracy(mod1)
+forecast::accuracy(mod1)
 #forecast_mod1 <- predict(mod1, n.ahead = 3)
 #plot(forecast_mod1)
 ```
@@ -205,7 +223,7 @@ pred_mod2 <- predict(mod2, Data_test)
 #mod2$coefficients
 
 summary(mod2)
-accuracy(mod2)
+forecast::accuracy(mod2)
 ```
 Model 3:  $GDP_t = \beta_0 +\beta_1 GT_{t,i} +\epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
 
@@ -213,7 +231,10 @@ Model 3:  $GDP_t = \beta_0 +\beta_1 GT_{t,i} +\epsilon_t \qquad  t =1,\dotsc,T \
 mod3<- lm(gdp ~ google, data = Data_train)
 pred_mod3 <- predict(mod3, Data_test)
 summary(mod3)
-accuracy(mod3)
+forecast::accuracy(mod3) # IS accuracy
+
+acc_oss <-forecast::accuracy(Data_test$gdp,pred_mod3)
+acc_oss
 ```
 Model 4: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \epsilon_t \qquad  t =1,\dotsc,T$
 
@@ -221,75 +242,82 @@ Model 4: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \epsilon_t \qqu
 mod4<- lm(gdp ~ lag(gdp) + cci, data = Data_train)
 pred_mod4 <- predict(mod4, Data_test)
 summary(mod4)
-accuracy(mod4)
+forecast::accuracy(mod4)
 ```
 Model 5: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 GT_{t,i} + \epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
 
 ```{r}
 mod5<- lm(gdp ~ lag(gdp) + google, data = Data_train)
 pred_mod5 <- predict(mod5, Data_test)
-pred_mod5
+
+error <- Data_test$gdp - pred_mod5
+error <-error[!is.na(error)]
+RMSE <- sqrt(mean(error^2))
+RMSE
+error
 summary(mod5)
-accuracy(mod5)
+forecast::accuracy(mod5)
+
+acc_oos <-forecast::accuracy(Data_test$gdp,pred_mod5)
+acc_oos
 ```
 
 Model 6: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \beta_3 GT_{t,i} + \epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
 ```{r}
 mod6<- lm(gdp ~ lag(gdp) + cci + google, data = Data_train)
-pred_mod5 <- predict(mod6, Data_test)
 summary(mod6)
-accuracy(mod6)
+forecast::accuracy(mod6) # IS 
+
+##OOS
+pred_mod5 <- predict(mod6, Data_test)
+
 ```
 
 #VAR model mit Varselect all 3 variables
 ```{r}
-Yselect <- VARselect(Data[,4:6],type = "const")   
+Yselect <- VARselect(Data[,1:3],type = "const")   
 #Yselect <- VARselect(Data[,4:6],type = "none") #lag 2      # computes information criteria
   lag <- Yselect$selection[1]  # AiC, Hq auch 2 , SC auch
   
 lag 
 
-VAR_est <- VAR(y = Data[,4:6], p = lag)
-summary(VAR_est$varresult)
+VAR_est <- VAR(y = Data[,1:3], p = lag)
+summary(VAR_est$varresult$gdp)
+
 library(Metrics)
-
-
-rmse(Data[,4:6],forecasts)
 
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
-forecasts <- predict(VAR_est, )
+forecasts <- predict(VAR_est,n.ahead = 3 )
 forecasts
-plot(forecasts)
 
+plot(forecasts)
 stargazer(VAR_est$varresult)
 ```
 
-
-#### OOS!Accuracy
-
+### VAR(2)
 ```{r}
-v <- VAR(Data[,c(1,3)], type="const", p=2)
-#v <- vecm16var
-#v <- vecm16
-horizon= 3
-p <- predict(v, n.ahead=horizon)
-res <- residuals(v)
-fits <- fitted(v)
-lags =2
+dat <- ts(Data[,1:3], frequency = 4, start = c(2006, 1))
 
-library(Metrics)
-x <- rmse(Data[,1],p$fcst[[1]][,"fcst"]) #1 for gdp 
-x
+start=c(2017, 1)
+end = c(2016,4)
 
-for(i in 1:3){
-  fc <- structure(list(mean=p$fcst[[i]][,"fcst"], x=Data_train[,i],
-                       fitted=c(rep(NA,lags),fits[,i])),class="forecast")
-  acc_pes <- accuracy(fc,Data_test[,1])
-  acc_Dune <- accuracy(fc,Data_test[,2])
-  acc_cpi <- accuracy(fc,Data_test[,3])
-}
+trainingdata <- window(dat, end = end)
+testdata <- window(dat, start=start)
+
+v <- VAR(trainingdata, p=2)
+summary(v$varresult$gdp)
+p <- predict(v, n.ahead=8)
+#res <- residuals(v$varresult$gdp)
+#fits <- fitted(v)
+#RMSE <- sqrt(mean(res^2))
+
+acc_is_VAR <-forecast::accuracy(trainingdata,v$varresult$gdp$fitted.values) # works!!! validated against 
+acc_oos_VAR <-forecast::accuracy(testdata,p$fcst$gdp) # works!!! validated against test dat
+#acc_oos_VAR <-forecast::accuracy(testdata,p$fcst$cci)
+#acc_oos_VAR <-forecast::accuracy(testdata,p$fcst$google)
+
 ```
 
 
@@ -413,49 +441,36 @@ R_squared <- 1 - rss/tss
 plot(forecast(y_pred,h=3)) # forecast 1Q  ahead!!! 
 
 ```
-
-### just code examples delete
+# AR(4) model wegen quarterly data
 ```{r}
-#naive_mod <- naive(Data[,"gdp"], h = 3)
-#summary(naive_mod)
-cafe.test <- Arima(Data_test[,"gdp"], model=arimax)
-summary(cafe.test)
-#accuracy(cafe.test)
-### loo
-# same as above nur mit arima order selber
-cafe.train <- Arima(Data_train[,"gdp"], order=c(0,0,1))
-cafe.train %>%
-  forecast(h=3) 
+AR_4 <- Arima(Data_train[,"gdp"], order=c(4,0,0))
+summary(AR_4)
 
-cafe.test <- Arima(Data_test[,"gdp"], model=cafe.train)
-summary(cafe.test)
+y_train <- forecast(AR_4, h = 3)$fitted # We make a forecast one hour ahead and we extract the fitted values from the object forecast.
+x_train <- Data_train[,"gdp"]
+rss <- sum((y_train - x_train) ** 2)
+tss <- sum((x_train - mean(x_train)) ** 2)
+R_squared <- 1 - rss/tss
+paste(c("R-squared:", round(R_squared, 4)))
 
+##### apply model to test set
+
+y_pred <- forecast(Data_test[,"gdp"], model = AR_4, h=3)$fitted # We call the forecast function passing the testing data through the ARIMA model fitted with the training data and we extract the fitted values.
+y_test <- Data_test[,"gdp"]
+sd_test <- sd(y_test)
+RMSE <- rmse(y_test, y_pred)
+
+MAE <- mae(y_test, y_pred)
+
+rss <- sum((y_test - y_pred) ** 2)
+tss <- sum((y_test - mean(y_test)) ** 2)
+R_squared <- 1 - rss/tss
+
+plot(forecast(y_pred,h=3))
 autoplot(forecast(cafe.train))
-#%>%
-  #autoplot() + autolayer(Data_test)
 ```
-
 # do grid and then different arima models and compare by AIC
 (0,0,0) loop - later if time... not needed dont want best model gdp want impact of google in gdp forecast
-```{r}
-# works only problem is how do i safe each ar model to each row in list ar.. [[]] maybe one more loop und length(..)
-
-grid_test <- expand.grid(p = seq(0, 4, by= 1),
-                            q= seq(0, 4, by= 1),
-                                   d = seq(0, 4, by= 1))
-
-ar_model <- function(data){
-  ar <- list()
-  for (p in 1:2) for (d in 1:2) for (q in 1:2) {
-  ar[] <- arima(data[,1],order = c(p,d, q),include.mean = TRUE)
-  #print(c(p,d,q))
-}
-  return(ar)
-}
-test <- ar_model(data = Data_train)
-
-```
-
 
 
 # Expanding window estimation instead of fixed test and train data set 
@@ -474,7 +489,7 @@ estimate on 1:12, predict 13, incorporate new 13 in data and estimate on 1:13, a
 
 will keine expanding für ARIMA!! AR(1) ist ja nur BM und ich will prüfen ob google data auch oos preduíctive power hat ... cci ersetzen kann besser als Ar(1) ist oder arima..change eifnach exp_ols code into ar(...)
 
-##DO expanding for laged models!!! 
+### ist noch kein forecast...
 
 ```{r}
 expanding_window_OLS <- function(data, dep_var, start = 13){ # change to 12 
@@ -708,6 +723,86 @@ final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
 RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
 RMSE_OLS_IS
 ```
+#ARIMA(2,0,0) expanding estimation
+```{r}
+Data$gdp_lag2 <- lag(Data$gdp_lag)
+
+dep_var <- "gdp"
+model = gdp ~ gdp_lag + gdp_lag2
+
+expanding_OLS <- expanding_window_OLS(Data[3:63,], dep_var, start = 13)
+
+#predictions
+pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
+colnames(pred) <- c("value")
+rownames(pred) <- Date_q_pred[3:51]
+Date_q_pred <- Date_q[13:63]
+
+pred <- as.ts(pred, start=c(2009,3), end = c(2021,3), frequency = 4)
+ts.plot(pred)
+
+### error in and OOS 
+error_OLS <- expanding_OLS[[4]]
+error_OLS <-error_OLS[!is.na(error_OLS)]
+MAE_OLS_OOS <- mean(abs(error_OLS))
+MAE_OLS_OOS
+RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2)) 
+RMSE_OLS_OOS
+MSE_OLS <- mean(error_OLS^2) 
+MSE_OLS
+# IS error terms----------------------------------------------------------------
+# IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
+resid_OLS <- expanding_OLS[[3]]
+final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+
+RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
+RMSE_OLS_IS
+```
+
+#### VAR expanding window, same VAR as VAR select just expanding 
+
+# create new dataset!!!
+```{r}
+library(collapse)
+
+# keep orginals ones though,...
+Data_Var <-flag(Data[1:3], 1:2)
+
+Data_Var <- cbind(Data[,1:3],Data_Var)
+## all have lag 2.... 
+
+model= gdp ~ L1.gdp +L2.gdp + L1.cci +L2.cci +L1.google + L2.google
+
+  #change "!! dependt on var names form flag.. 
+
+expanding_OLS <- expanding_window_OLS(Data_Var[3:63,], dep_var, start = 13) # adjust start???
+#predictions
+pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
+colnames(pred) <- c("value")
+rownames(pred) <- Date_q_pred[3:51]
+Date_q_pred <- Date_q[13:63]
+
+pred <- as.ts(pred, start=c(2009,3), end = c(2021,3), frequency = 4)
+ts.plot(pred)
+
+### error in and OOS 
+error_OLS <- expanding_OLS[[4]]
+error_OLS <-error_OLS[!is.na(error_OLS)]
+MAE_OLS_OOS <- mean(abs(error_OLS))
+MAE_OLS_OOS
+RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2)) 
+RMSE_OLS_OOS
+MSE_OLS <- mean(error_OLS^2) 
+MSE_OLS
+# IS error terms----------------------------------------------------------------
+# IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
+resid_OLS <- expanding_OLS[[3]]
+final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+
+RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
+RMSE_OLS_IS
+```
+
 
 ### as extension create consumer index.. later!! once written all maybe 
 
