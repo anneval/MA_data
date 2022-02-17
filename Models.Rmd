@@ -17,7 +17,7 @@ TO DO:
 
 - forecast aus expanding
 - VAR mit test and train!!!! done
-- VAR mit expanding... 
+- VAR mit expanding... done
 - tests on other models as well....! 
 - overview of results...!
 - Do new model with consumer google index statt economic google index? - initialise new indices..
@@ -46,6 +46,7 @@ library(vars)
 library(GGally)
 library(Metrics)
 library(caret)
+library(collapse)
 ```
 
 
@@ -228,8 +229,14 @@ forecast::accuracy(mod2)
 Model 3:  $GDP_t = \beta_0 +\beta_1 GT_{t,i} +\epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
 
 ```{r}
+
+# do new data set where google all periods
+colnames(Google_AT_qtrly) <- c("Date_q","time","google")
+
 mod3<- lm(gdp ~ google, data = Data_train)
 pred_mod3 <- predict(mod3, Data_test)
+#pred_mod3 <- predict(mod3, Google_AT_qtrly[45:65,])
+pred_mod3
 summary(mod3)
 forecast::accuracy(mod3) # IS accuracy
 
@@ -296,7 +303,7 @@ plot(forecasts)
 stargazer(VAR_est$varresult)
 ```
 
-### VAR(2)
+### VAR(2) and 4 ... 
 ```{r}
 dat <- ts(Data[,1:3], frequency = 4, start = c(2006, 1))
 
@@ -306,7 +313,8 @@ end = c(2016,4)
 trainingdata <- window(dat, end = end)
 testdata <- window(dat, start=start)
 
-v <- VAR(trainingdata, p=2)
+
+v <- VAR(trainingdata, p=4) # change t0 2.!!!
 summary(v$varresult$gdp)
 p <- predict(v, n.ahead=8)
 #res <- residuals(v$varresult$gdp)
@@ -354,7 +362,7 @@ sum2 <- data.frame(
   VAR_est$varresult$cci$residuals,
   VAR_est$varresult$google$residuals)
 
-adf.test( VAR_est$varresult$gdp$residuals) # stationary
+adf.test(VAR_est$varresult$gdp$residuals) # stationary
 adf.test(VAR_est$varresult$cci$residuals) #stationary
 adf.test(VAR_est$varresult$google$residuals)#stationary
 ```
@@ -364,7 +372,13 @@ adf.test(VAR_est$varresult$google$residuals)#stationary
 Normtest <- normality.test(VAR_est) # H0: normality
 print(Normtest)
 plot(Normtest)
+```
 
+
+```{r}
+library(car)
+durbinWatsonTest(VAR_est$varresult$gdp)
+durbinWatsonTest(varma$residuals)
 ```
 # serial correlation check
 ```{r}
@@ -542,6 +556,7 @@ final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
 
 RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
 RMSE_OLS_IS
+
 ```
 #model2 again
 ```{r}
@@ -581,6 +596,9 @@ final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
 
 RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
 RMSE_OLS_IS
+
+# pred
+plot(forecast(pred,h=3))
 ```
 
 #model3 again
@@ -763,13 +781,11 @@ RMSE_OLS_IS
 
 # create new dataset!!!
 ```{r}
-library(collapse)
+
 
 # keep orginals ones though,...
 Data_Var <-flag(Data[1:3], 1:2)
-
-Data_Var <- cbind(Data[,1:3],Data_Var)
-## all have lag 2.... 
+Data_Var <- cbind(Data[,1:3],Data_Var)## all have lag 2.... 
 
 model= gdp ~ L1.gdp +L2.gdp + L1.cci +L2.cci +L1.google + L2.google
 
