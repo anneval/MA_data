@@ -49,9 +49,9 @@ consumption <- c("Shopping", "Klamotten", "Autokauf", "Restaurant", "Möbel") # 
 #next
 
 #proc_keyword_init("Restaurant",geo, from = "2014-01-01") 
-#proc_keyword_init("Möbel",geo, from = "2014-01-01") 
+proc_keyword_init("Möbel",geo, from = "2014-01-01") 
 
-#proc_index(consumption,"AT", "consumption")
+proc_index(consumption,"AT", "consumption")
 
 # Unemployment
 unemployment <- c("Jobagentur", "Arbeitslosengeld", "Jobcenter", "arbeitslos")
