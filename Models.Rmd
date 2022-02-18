@@ -9,7 +9,7 @@ TO DO: runterschreiben was wie und dann seh ich welche Modelle...
 Models I have:
 
 - AR(1) and standard OLS (split data IS and OOS) (6x)
-- AR(1) and expanding estimation  (IS and OOS) (6x) - cannot compare to others sample set, correct since incoporate predcition in new train data?
+- AR(1) and expanding estimation  (IS and OOS) (6x) - cannot compare to others sample set, correct since incorporate prediction in new train data?
 - auto.arima model (lag selection automatic, and 4 (still have to do)) used test and train, explanation on pacf..)
 - VAR model (lag selection automatic (and pacf and acf), and 4)
 
@@ -20,7 +20,7 @@ TO DO:
 - VAR mit expanding... done
 - tests on other models as well....! 
 - overview of results...! tables
-- Do new model with consumer google index statt economic google index? - initialise new indices..
+- Do new model with consumer Google index statt economic Google index? - initialize new indices..
 
 Question: 
 - incorporate further data or not? 
