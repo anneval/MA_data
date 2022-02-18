@@ -42,31 +42,31 @@ proc_index(corona,"AT", "corona")
 
 # Consumption
 consumption <- c("Shopping", "Klamotten", "Autokauf", "Restaurant", "Möbel") # wirtschaft, Klamotten, Autokauf, Electorics,Food & Drink, Furniture 
-
-#proc_keyword_init("Shopping",geo, from = "2014-01-01") 
-#proc_keyword_init("Klamotten",geo, from = "2014-01-01") 
-#proc_keyword_init("Autokauf",geo, from = "2014-01-01") 
-#proc_keyword_init("Restaurant",geo, from = "2014-01-01") 
-#proc_keyword_init("Möbel",geo, from = "2014-01-01") 
+# do again all data... 
+#proc_keyword_init("Shopping",geo) 
+#proc_keyword_init("Klamotten",geo) 
+#proc_keyword_init("Autokauf",geo) 
+#proc_keyword_init("Restaurant",geo) # do again from here all !
+#proc_keyword_init("Möbel",geo) 
 
 proc_index(consumption,"AT", "consumption")
 
 # Unemployment
 unemployment <- c("Jobagentur", "Arbeitslosengeld", "Jobcenter", "arbeitslos")
 
-#proc_keyword_init("Jobagentur",geo, from = "2014-01-01") 
-#proc_keyword_init("Arbeitslosengeld",geo, from = "2014-01-01") 
-#proc_keyword_init("Jobcenter",geo, from = "2014-01-01") 
-#proc_keyword_init("arbeitslos",geo, from = "2014-01-01") 
+#proc_keyword_init("Jobagentur",geo) 
+#proc_keyword_init("Arbeitslosengeld",geo) #here again
+#proc_keyword_init("Jobcenter",geo) 
+#proc_keyword_init("arbeitslos",geo) already done before!
 
 #proc_index(unemployment,"AT", "unemployment")
 
 # Housing
 housing <- c("Immobilienfinanzierung", "immobilienscout24", "Immobilienmarkt","Immobilienmakler") #“real estate listings” 
 
-#proc_keyword_init("Immobilienfinanzierung",geo, from = "2014-01-01") 
-#proc_keyword_init("immobilienscout24",geo, from = "2014-01-01") 
-#proc_keyword_init("Immobilienmarkt",geo, from = "2014-01-01") 
-#proc_keyword_init("Immobilienmakler",geo, from = "2014-01-01") 
+#proc_keyword_init("Immobilienfinanzierung",geo) 
+#proc_keyword_init("immobilienscout24",geo) 
+#proc_keyword_init("Immobilienmarkt",geo) 
+#proc_keyword_init("Immobilienmakler",geo) 
 
 #proc_index(housing,"AT", "housing")
