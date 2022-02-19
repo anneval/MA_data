@@ -52,21 +52,21 @@ consumption <- c("Shopping", "Klamotten", "Autokauf", "Restaurant", "Möbel") # 
 proc_index(consumption,"AT", "consumption")
 
 # Unemployment
-unemployment <- c("Jobagentur", "Arbeitslosengeld", "Jobcenter", "arbeitslos")
+unemployment <- c("Arbeitslosengeld", "Jobcenter", "arbeitslos")
 
 #proc_keyword_init("Jobagentur",geo) 
 #proc_keyword_init("Arbeitslosengeld",geo) #here again
 #proc_keyword_init("Jobcenter",geo) 
 #proc_keyword_init("arbeitslos",geo) already done before!
 
-#proc_index(unemployment,"AT", "unemployment")
+proc_index(unemployment,"AT", "unemployment")
 
 # Housing
-housing <- c("Immobilienfinanzierung", "immobilienscout24", "Immobilienmarkt","Immobilienmakler") #“real estate listings” 
+housing <- c("Immobilienfinanzierung", "immobilienscout24", "Immobilien","Immobilienmakler") #“real estate listings” 
 
 #proc_keyword_init("Immobilienfinanzierung",geo) 
 #proc_keyword_init("immobilienscout24",geo) 
-#proc_keyword_init("Immobilienmarkt",geo) 
-#proc_keyword_init("Immobilienmakler",geo) 
+#proc_keyword_init("Immobilien",geo) #done
+#proc_keyword_init("Makler",geo) 
 
 #proc_index(housing,"AT", "housing")
