@@ -119,6 +119,10 @@ pacf(GDP_qtrly$Value) # suggests AR(1) model!!
 
 fit <- auto.arima(GDP_qtrly$Value, trace = TRUE,  ic = c("aic"))  ## sugessts a MA(1) model !!
 tsdisplay(resid(fit))
+```
+
+
+
 # As we can observe, the time series of residuals is not White Noise, since there are several ACF and PACF coefficients that exceed the confidence bands. Hence, the AIC-selected model clearly underfits these data. If an AR(10) is used in place of the ARMA(2,3), the residuals feature the desired White Noise property. As a conjecture, we would reject the ARMA(2,3) here despite its better AIC value and note that blindly trusting in automatic model selection procedures may well lead to models that fit poorly.The next step is to perform residual analysis – if the model is appropriate, they must look like White Noise.
 
 #With a stationary ARMA( p, q) , we would here focus more on the long-term aspects of the series, i.e. the climatic changes that happen over decades or even centuries. If the data are differenced, we consider the changes in growth from year to year. This puts the focus on the bio-chemical aspect, while climate change is ruled out. Not surprisingly, the autocorrelation among the differenced data is strongly negative at lag 1. This means that a big positive change in growth is more likely to be followed by a negative change in growth and vice versa. Hence this model focuses more on the recovery of the tree after strong resp. weak growth in one year versus the next. Hence it would not primarily be the climate which is modelled, but more the bio-chemical processes within the tree. Thus, it is also a matter of the applied research question which of the two models is more suited
@@ -128,6 +132,8 @@ tsdisplay(resid(fit))
 
 #In order to determine between an AR and a MA series an auto-correlation function (ACF) plot can be used. This is a plot of total correlation between different lag functions. Also the partial autocorrelation function (PACF) can be used alongside this. The PACF is the correlation between two lags irrespective of other lags in the series. 
 #Each bar represents the correlation between the original series and its kth lag. The first bar is always equal to one as this is simply measuring the variable correlated with itself. The blue line apparent in any plot represents statistically significant values other than 0, meaning any bars underneath this threshold are not statistically significant. The method to distinguish between AR and MA processes comes from observing which graph falls below this line first. If the PACF graph becomes insignificant before the ACF plot then the series is mostly an AR process. For instance, in the top two images the PACF becomes insignificant after the second lag, meaning it is an AR(2) process. On the other hand in the bottom images the ACF plot becomes insignificant after the 2nd bar, meaning it is mostly a MA(2) process.
+
+```{r}
 ts.plot(GDP_ts_AT)
 ts.plot(GDP_ts)
 
@@ -513,10 +519,9 @@ The ACF plots the correlation coefficient against the lag, which is measured in 
 
 Partial autocorrelation is a statistical measure that captures the correlation between two variables after controlling for the effects of other variables. For example, if we’re regressing a signal S at lag t (S_{t}) with the same signal at lags t-1, t-2 and t-3 (S_{t-1}, S_{t-2}, S_{t-3}), the partial correlation between S_{t} and S_{t-3} is the amount of correlation between S_{t} and S_{t-3} that isn’t explained by their mutual correlations with S_{t-1} and S_{t-2}.To summarize, a partial autocorrelation function captures a “direct” correlation between time series and a lagged version of itself.
 
-Stat
+Stationarity
 S_{t} has a constant mean.
 S_{t} has a constant standard deviation.
-There is no seasonality in S_{t}. If S_{t} has a repeating pattern within a year, then it has seasonality.
 Augmented Dickey-Fuller Test (ADF) with the null hypothesis that the signal is non-stationary.
 Kwiatkowski-Phillips-Schmidt-Shin Test (KPSS) with the null hypothesis that the signal is stationary.
 

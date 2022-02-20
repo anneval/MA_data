@@ -47,6 +47,7 @@ library(GGally)
 library(Metrics)
 library(caret)
 library(collapse)
+library(urca)
 ```
 
 
@@ -79,7 +80,7 @@ rownames(Data)  <- as.Date(Date_q)
 #Source: https://data.oecd.org/gdp/quarterly-gdp.htm#indicator-chart
 gdp <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[9:71,6:7]
 
-summary(gdp_ts)
+
 
 colnames(gdp)[colnames(gdp) %in% c("TIME", "Value")] <- c("QDate", "value")
 gdp <- cbind(gdp,Date_q)
@@ -175,12 +176,30 @@ adf.test(diff(Data$google))
 kss tests and phillip peron tests:
 ```{r}
 kpss.test(Data$gdp) # stationary
-kpss.test(Data$cci) # stationary
+kpss.test(Data$cci) # not stationary at 5%...0.09
 kpss.test(Data$google) # stationary
 
 pp.test(Data$gdp) # stationary
-pp.test(Data$cci) # not stationary
+pp.test(Data$cci) # not stationary (0.21)
 pp.test(Data$google) # stationary
+
+# Johansen test  -dont need to not integrated  ofsame orders!!!
+#(https://stats.stackexchange.com/questions/301483/cointegration-if-both-variables-are-i0)
+# The null hypothesis for both forms of test is that there are no cointegrating equations.
+#Johansen’s test is a way to determine if three or more time series are cointegrated. More specifically, it assesses the validity of a cointegrating relationship, using a maximum likelihood estimates (MLE) approach. It is also used to find the number of relationships and as a tool to estimating those relationships (Wee & Tan, 1997).
+jotest=ca.jo(Data[,1:3], type="trace", K=2, ecdet="none", spec="longrun")
+summary(jotest)
+
+s = 1.000*Data[,1] - 0.02765629*Data[,2]  -0.17006873*Data[,3]
+plot(s, type="l")
+adf.test(s)
+
+
+mod6<- lm(gdp ~ cci, data = Data)
+
+adf.test(mod6$residuals, k=1) # stationarity true, have a cointegrated pair.. 
+
+
 ```
 # ACF and PACF plots: Reasoning stationarity
 ```{r}
