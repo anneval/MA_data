@@ -71,3 +71,5 @@ housing <- c("Immobilienfinanzierung", "immobilienscout24", "Immobilien","Makler
 #proc_keyword_init("Immobilienmarkt",geo)
 
 proc_index(housing,"AT", "housing")
+
+

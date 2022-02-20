@@ -79,6 +79,8 @@ rownames(Data)  <- as.Date(Date_q)
 #Source: https://data.oecd.org/gdp/quarterly-gdp.htm#indicator-chart
 gdp <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[9:71,6:7]
 
+summary(gdp_ts)
+
 colnames(gdp)[colnames(gdp) %in% c("TIME", "Value")] <- c("QDate", "value")
 gdp <- cbind(gdp,Date_q)
 #ts:
@@ -100,6 +102,8 @@ cci <- arrange(cci, Date_m)
 cci$Date_q <- as.yearqtr(cci$Date_m) 
 cci$Date_q <- as.Date(cci$Date_q)
 
+ccits <- ts(cci$value)
+ts.plot(ccits)
 #cci$Date_q  <- as.character(cci$Date_m)
 #cci$Date_q[CCI_mntly$Date_q == "2021 Q4"] <- "2021 Q3"
 
