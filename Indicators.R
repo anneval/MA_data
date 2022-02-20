@@ -62,8 +62,8 @@ unemployment <- c("Arbeitslosengeld", "Jobcenter", "arbeitslos")
 proc_index(unemployment,"AT", "unemployment")
 
 # Housing
-housing <- c("Immobilienfinanzierung", "immobilienscout24", "Immobilien","Makler") #“real estate listings” 
-
+housing <- c("immobilienscout24", "Immobilien","Makler") #“real estate listings” 
+#"Immobilienfinanzierung",
 #proc_keyword_init("Immobilienfinanzierung",geo) 
 #("immobilienscout24",geo) 
 #proc_keyword_init("Immobilien",geo) 
