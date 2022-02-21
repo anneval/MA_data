@@ -214,10 +214,6 @@ Data$gdp_lag <- lag(Data$gdp)
 
 #ADF tests: 
 ```{r}
-
-urTable(df, tests = c("adf", "pp", "kpss"), order = 1, file = NULL,
-  format = "csv")
-
 adfgdp <- adf.test(Data$gdp) # stationary
 adfcci <- adf.test(Data$cci) # stationary
 adfgoogle <- adf.test(Data$google) # not stat # test agao  after remove inlation 
@@ -226,9 +222,19 @@ adfgdp
 adfcci
 adfgoogle
 
-adf.test(diff(Data$gdp))
+adfgdpdiff <- adf.test(diff(Data$gdp))
 adf.test(diff(Data$cci))
 adf.test(diff(Data$google))
+
+remotes::install_github("fcbarbi/macroR")
+library(macror)
+
+x<-urTable(Data[,1:3], tests = c("adf", "pp", "kpss"), order = 1, file = NULL,
+format="latex")
+
+library(xtable)
+print(xtable(x, type = "latex"), file = "filename2.tex")
+
 ```
 kss tests and phillip peron tests:
 ```{r}
