@@ -54,7 +54,6 @@ library(urca)
 ```{r}
 rm(list=ls())
 getwd()
-setwd("/Users/annevalder/Desktop/UNI /WU WIEN/SoSe_21/MA/R-CODE")
 ```
 # Load all data in (GDP, CCI, Goolge), extension unemployment (statAT), inflation(statAT), uncertainty index (paper Brown et al)
 
@@ -80,8 +79,6 @@ rownames(Data)  <- as.Date(Date_q)
 #Source: https://data.oecd.org/gdp/quarterly-gdp.htm#indicator-chart
 gdp <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[9:71,6:7]
 
-
-
 colnames(gdp)[colnames(gdp) %in% c("TIME", "Value")] <- c("QDate", "value")
 gdp <- cbind(gdp,Date_q)
 #ts:
@@ -90,6 +87,9 @@ gdp_ts <- ts(gdp$value, start=c(2006,1), end = c(2021,3), frequency = 4)
 Data[(Date_q%in%gdp$Date_q),1] <- gdp$value
 Data$gdp_ts <- ts(Data$gdp, start=c(2006,1), end = c(2021,3), frequency = 4)
 ```
+
+
+
 #CCI
 ```{r, include=FALSE}
 # abgerufen final am 11.02.2022
@@ -103,8 +103,6 @@ cci <- arrange(cci, Date_m)
 cci$Date_q <- as.yearqtr(cci$Date_m) 
 cci$Date_q <- as.Date(cci$Date_q)
 
-ccits <- ts(cci$value)
-ts.plot(ccits)
 #cci$Date_q  <- as.character(cci$Date_m)
 #cci$Date_q[CCI_mntly$Date_q == "2021 Q4"] <- "2021 Q3"
 
@@ -139,35 +137,94 @@ Data[(Date_q%in%Google_AT_qtrly_63$Date_q),3] <- (Google_AT_qtrly_63$value)
 Data$google_ts <- ts(Data$google, start=c(2006,1), end = c(2021,3), frequency = 4)
 ```
 
+# Graphics
+```{r}
+par(mfrow = c(3,1))
+
+# GDP
+
+ggplot(gdp, aes(x=Date_q, y=value,col = variable)) +
+  geom_line(color = "steelblue") +
+  theme_light() +
+  labs(title = "Quarterly GDP Growth Rate (Q1 2006 - Q3 2021)", x = "Years", y = "Austria's GDP growth (in%)")+
+  theme(plot.title = element_text(hjust = 0.5, face ="bold")) +
+  scale_x_date(date_labels="%b %y",date_breaks  ="24 month")
+  
+
+#CCI
+
+ggplot(cci, aes(x=Date_m, y=value)) +
+  geom_line(color = "steelblue") +
+  theme_light() +
+    labs(title = "Consumer Confidence Austria 2006-2021 (Monthly)", x = "Years", y = "Austria's Consumer Confidence (total)")+
+  theme(plot.title = element_text(hjust = 0.5, face ="bold")) +
+  scale_x_date(date_labels="%b %y",date_breaks  ="24 month")
+
+# PES - Google
+
+ggplot(Google_AT_daily, aes(x=time, y=value)) +
+  geom_line(color = "black") +
+  theme_light() +
+    labs(title = "Google Trends TrendEcon Daily Indicator AT (2006 - 2021)", x = "Years", y = "Austria's GT daily")+
+  theme(plot.title = element_text(hjust = 0.5, face ="bold")) +
+  scale_x_date(date_labels="%b %y",date_breaks  ="24 month")
+```
+
+#later graph comparison
+```{r}
+##### Abilene für comparison abbilden 
+ts.plot(ts(Data[,1],frequency = 4, start = c(2006,1)),
+          ts(Data[,3],frequency = 4, start = c(2006,1)),
+          ts(CCI_qtrlyx$Value,frequency = 4, start = c(2006,1)),
+    col = c("red", "blue","black"),
+    xlab = "Year", 
+    ylab = "Search Frequency (Wirtschaftskrise)", 
+    lwd = 1)
+legend("bottomright", c("GDP growth", "PES","CCI"), col=c("red","blue", "black"), lty=c(1),
+       inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
+       )
+
+## with growth rates of cci...
+ts.plot(ts(Data[,1],frequency = 4, start = c(2006,1)),
+          ts(Data[,3],frequency = 4, start = c(2006,1)),
+          ts(cci_gr$cci_gr,frequency = 4, start = c(2006,1)),
+    col = c("red", "blue","black"),
+    xlab = "Year", 
+    ylab = "Search Frequency (Wirtschaftskrise)", 
+    lwd = 1)
+legend("bottomright", c("GDP growth", "PES","CCI"), col=c("red","blue", "black"), lty=c(1),
+       inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
+       )
+
+
+cci_gr <- ((cci_qtrly$value - lag(cci_qtrly$value))/lag(cci_qtrly$value))  
+cci_gr <- as.data.frame(cci_gr)
+cci_gr[2:64,]
+```
+
+
+
+
 # dataframe for later models 
 ```{r}
 Data_Var <- Data[,1:3]
 Data$gdp_lag <- lag(Data$gdp)
 ```
 
-```{r}
-# descriptives? do for all 3 ... and graphs 
-sum_train_2009_2016 <- as.data.frame(train_200901_201612) %>% 
-                        summarise(min. = min(PM10_0),
-                                  q25 = quantile(PM10_0, 0.25),
-                                  avg = round(mean(PM10_0), 2),
-                                  median = median(PM10_0),
-                                  max. = max(PM10_0),
-                                  q75 = quantile(PM10_0, 0.75),
-                                  sd   = round(sd(PM10_0), 2))  %>%
-                        mutate(period = "2009-01-2016-12")
-
-periods_summary <- bind_rows(sum_train_2009_2016, sum_train_2014_2016, sum_train_201610_201612, sum_test_201701_201709, sum_validation_201710_201712) %>%
-                  select(period, everything()) # I move the "period" column to the first position
-
-```
 
 #ADF tests: 
 ```{r}
-adf.test(Data$gdp) # stationary
-adf.test(Data$cci) # stationary
-adf.test(Data$google) # not stat # test agao  after remove inlation 
+
+urTable(df, tests = c("adf", "pp", "kpss"), order = 1, file = NULL,
+  format = "csv")
+
+adfgdp <- adf.test(Data$gdp) # stationary
+adfcci <- adf.test(Data$cci) # stationary
+adfgoogle <- adf.test(Data$google) # not stat # test agao  after remove inlation 
 # not stationary since I included inflation... 
+adfgdp
+adfcci
+adfgoogle
 
 adf.test(diff(Data$gdp))
 adf.test(diff(Data$cci))

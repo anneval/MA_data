@@ -100,7 +100,7 @@ PP.test(CCI_mntly$Value)
 #CCI_mntly<- read_xlsx("ConsumerConfidence.xlsx", sheet = "MONTHLY")[253:438,c(1,173)]#
 #CCI_mntly<- read_xlsx("CCI.xlsx", sheet = "CONSUMER MONTHLY")[254:445,c(1,297)]
 
-CCI_mntly<- read_xlsx("~/Desktop/Uni/WU WIEN/SoSe_21/MA/data/CCI.xlsx",sheet = "CONSUMER MONTHLY")[253:444,c(1,297)] # 297 ist Spalte KK - total index!
+CCI_mntly<- read_xlsx("~/Desktop/Uni/WU WIEN/SoSe_21/MA/data/CCI.xlsx",sheet = "CONSUMER MONTHLY")[253:444,c(1,298)] # 297 ist Spalte KK - total index!
 
 summary(CCI_mntly)
 
@@ -118,7 +118,7 @@ adf.test(CCI_diff_Q)
 #adf.test(CCI_mntly$Value)  #### non stationary!! - take diff???
 #CCI_mntly <- diff(CCI_mntly$Value)
 
-colnames(CCI_mntly)[colnames(CCI_mntly) %in% c("...1", "CONS.AT.TOT.COF.BS.M")] <- c("Date", "Value")
+colnames(CCI_mntly)[colnames(CCI_mntly) %in% c("...1", "CONS.AT.TOT.1.BS.M")] <- c("Date", "Value")
 CCI_mntly$Value <- as.integer(CCI_mntly$Value)
 ############## CCI FIN !!!! wie heik.
 
@@ -254,7 +254,7 @@ CCI_mntly$QDate <- as.yearqtr(CCI_mntly$Date)
 CCI_mntly$QDate <- as.character(CCI_mntly$QDate)
 CCI_mntly$QDate[CCI_mntly$QDate == "2021 Q4"] <- "2021 Q3"
 CCI_mntly$QDate <- as.yearqtr(CCI_mntly$QDate)
-CCI_qtrly <- CCI_mntly %>% group_by(QDate) %>%
+CCI_qtrlyx <- CCI_mntly %>% group_by(QDate) %>%
   summarise_all(mean)
 
 ### save version! 
