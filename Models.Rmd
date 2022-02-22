@@ -87,9 +87,6 @@ gdp_ts <- ts(gdp$value, start=c(2006,1), end = c(2021,3), frequency = 4)
 Data[(Date_q%in%gdp$Date_q),1] <- gdp$value
 Data$gdp_ts <- ts(Data$gdp, start=c(2006,1), end = c(2021,3), frequency = 4)
 ```
-
-
-
 #CCI
 ```{r, include=FALSE}
 # abgerufen final am 11.02.2022
@@ -203,8 +200,6 @@ cci_gr[2:64,]
 ```
 
 
-
-
 # dataframe for later models 
 ```{r}
 Data_Var <- Data[,1:3]
@@ -233,7 +228,7 @@ x<-urTable(Data[,1:3], tests = c("adf", "pp", "kpss"), order = 1, file = NULL,
 format="latex")
 
 library(xtable)
-print(xtable(x, type = "latex"), file = "filename2.tex")
+print(xtable(x, type = "latex"), file = "stattests.tex")
 
 ```
 kss tests and phillip peron tests:
@@ -266,12 +261,12 @@ adf.test(mod6$residuals, k=1) # stationarity true, have a cointegrated pair..
 ```
 # ACF and PACF plots: Reasoning stationarity
 ```{r}
-par(mfrow = c(2,2))
+par(mfrow = c(3,1))
 acf(Data$gdp)
 acf(Data$cci)
 acf(Data$google)
 
-par(mfrow = c(2,2))
+par(mfrow = c(3,))
 pacf(Data$gdp)
 pacf(Data$cci)
 pacf(Data$google)
@@ -285,7 +280,7 @@ ggpairs(Data[,1:3])
 
 ```{r}
 Data_train <- Data[1:44,] # 70%
-Data_test <- Data[45:63,] #20%
+Data_test <- Data[45:63,] #30%
 ```
 
 # Models Heik:
@@ -295,80 +290,125 @@ Model 1: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \epsilon_t  \qquad  t =1,\dotsc,T
 
 ```{r}
 mod1 <- lm(gdp ~ lag(gdp), data = Data_train)
+summary(mod1)
+sqrt(mean(mod1$residuals^2)) # IS 
+forecast::accuracy(mod1)
+
 pred_mod1 <- predict(mod1, Data_test)
 pred_mod1
-summary(mod1)
-forecast::accuracy(mod1)
-#forecast_mod1 <- predict(mod1, n.ahead = 3)
+acc_oss <-forecast::accuracy(Data_test$gdp,pred_mod1)
+acc_oss
+
+forecast_mod1 <- predict(mod1, n.ahead = 3)
+
+
+
 #plot(forecast_mod1)
 ```
 Model 2:  $GDP_t = \beta_0 +\beta_1 CCI_{t} +\epsilon_t \qquad  t =1,\dotsc,T$
 ```{r}
+
+#Data_cci <- cci_qtrly[,c(1,3)]
+#colnames(Data_cci) <- c("time", "cci") kann forecasten mit dereinen observation mehr aber kann nicht evaluaten... no equivalent gdp value
+
 mod2 <- lm(gdp ~ cci, data = Data_train)
-pred_mod2 <- predict(mod2, Data_test)
+summary(mod2)
+sqrt(mean(mod2$residuals^2)) # IS 
+forecast::accuracy(mod2)
+#pred_mod2
+pred_mod2 <- predict(mod2,Data_test)
+ts.plot(pred_mod2)
+#fore <- predict(mod2,newdata = Data_cci) # predict cci ...
+
+acc_oss <-forecast::accuracy(Data_test$gdp,pred_mod2)
+acc_oss
 #pred_test <- predict(mod2, cci_test)
 #mod2$coefficients
 
-summary(mod2)
-forecast::accuracy(mod2)
 ```
 Model 3:  $GDP_t = \beta_0 +\beta_1 GT_{t,i} +\epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
 
 ```{r}
-
 # do new data set where google all periods
-colnames(Google_AT_qtrly) <- c("Date_q","time","google")
+#colnames(Google_AT_qtrly) <- c("Date_q","time","google")
+Data_google <- Google_AT_qtrly[,c(1,3)]
+colnames(Data_google) <- c("time", "google")
 
 mod3<- lm(gdp ~ google, data = Data_train)
+summary(mod3)
+sqrt(mean(mod3$residuals^2)) # IS 
+forecast::accuracy(mod3) # IS accuracy
+
 pred_mod3 <- predict(mod3, Data_test)
 #pred_mod3 <- predict(mod3, Google_AT_qtrly[45:65,])
 pred_mod3
-summary(mod3)
-forecast::accuracy(mod3) # IS accuracy
 
 acc_oss <-forecast::accuracy(Data_test$gdp,pred_mod3)
 acc_oss
+
+fore <- predict(newdata = Data_google,mod3)
+
+ts.plot(fore)
+ts.plot(Google_AT_qtrly$value)
 ```
 Model 4: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \epsilon_t \qquad  t =1,\dotsc,T$
 
 ```{r}
 mod4<- lm(gdp ~ lag(gdp) + cci, data = Data_train)
-pred_mod4 <- predict(mod4, Data_test)
 summary(mod4)
-forecast::accuracy(mod4)
+sqrt(mean(mod4$residuals^2)) # IS 
+forecast::accuracy(mod4) # IS accuracy
+
+pred_mod4 <- predict(mod4, Data_test)
+pred_mod4
+
+acc_oss <-forecast::accuracy(Data_test$gdp,pred_mod4)
+acc_oss
 ```
 Model 5: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 GT_{t,i} + \epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
 
 ```{r}
 mod5<- lm(gdp ~ lag(gdp) + google, data = Data_train)
-pred_mod5 <- predict(mod5, Data_test)
-
-error <- Data_test$gdp - pred_mod5
-error <-error[!is.na(error)]
-RMSE <- sqrt(mean(error^2))
-RMSE
-error
 summary(mod5)
-forecast::accuracy(mod5)
+sqrt(mean(mod5$residuals^2)) # IS 
+forecast::accuracy(mod5) # IS accuracy
 
-acc_oos <-forecast::accuracy(Data_test$gdp,pred_mod5)
-acc_oos
+pred_mod5 <- predict(mod5, Data_test)
+acc_oos5 <-forecast::accuracy(Data_test$gdp,pred_mod5)
+acc_oos5
+
+# test stimmt!
+#error <- Data_test$gdp - pred_mod5
+#error <-error[!is.na(error)]
+#RMSE <- sqrt(mean(error^2))
+#RMSE
 ```
 
 Model 6: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \beta_3 GT_{t,i} + \epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
 ```{r}
 mod6<- lm(gdp ~ lag(gdp) + cci + google, data = Data_train)
 summary(mod6)
+sqrt(mean(mod6$residuals^2)) # IS 
 forecast::accuracy(mod6) # IS 
 
 ##OOS
-pred_mod5 <- predict(mod6, Data_test)
+pred_mod6 <- predict(mod6, Data_test)
+acc_oos6 <-forecast::accuracy(Data_test$gdp,pred_mod6)
+acc_oos6
 
+predictnew <- predict(mod6,)
 ```
+#Summary results 
+
+```{r}
+stargazer::stargazer(mod1,mod2,mod3,mod4,mod5,mod6)
+stargazer::stargazer(acc_oos5,acc_oos6)
+```
+
 
 #VAR model mit Varselect all 3 variables
 ```{r}
-Yselect <- VARselect(Data[,1:3],type = "const")   
+Yselect <- VARselect(Data_train[,c(1,2)],type = "const")   
 #Yselect <- VARselect(Data[,4:6],type = "none") #lag 2      # computes information criteria
   lag <- Yselect$selection[1]  # AiC, Hq auch 2 , SC auch
   
@@ -376,6 +416,7 @@ lag
 
 VAR_est <- VAR(y = Data[,1:3], p = lag)
 summary(VAR_est$varresult$gdp)
+forecast::accuracy(VAR_est$varresult$gdp) # IS accuracy
 
 library(Metrics)
 
@@ -391,7 +432,7 @@ stargazer(VAR_est$varresult)
 
 ### VAR(2) and 4 ... 
 ```{r}
-dat <- ts(Data[,1:3], frequency = 4, start = c(2006, 1))
+dat <- ts(Data_train[,1:3], frequency = 4, start = c(2006, 1))
 
 start=c(2017, 1)
 end = c(2016,4)
@@ -400,14 +441,19 @@ trainingdata <- window(dat, end = end)
 testdata <- window(dat, start=start)
 
 
-v <- VAR(trainingdata, p=4) # change t0 2.!!!
+v <- VAR(trainingdata, p=2) # change t0 2.!!!
 summary(v$varresult$gdp)
-p <- predict(v, n.ahead=8)
+p <- predict(v, n.ahead=3)
+
+p$fcst$gdp
+
+ts.plot(p$fcst$gdp)
 #res <- residuals(v$varresult$gdp)
 #fits <- fitted(v)
 #RMSE <- sqrt(mean(res^2))
 
 acc_is_VAR <-forecast::accuracy(trainingdata,v$varresult$gdp$fitted.values) # works!!! validated against 
+###aber nicht test dat verwendet???predicted
 acc_oos_VAR <-forecast::accuracy(testdata,p$fcst$gdp) # works!!! validated against test dat
 #acc_oos_VAR <-forecast::accuracy(testdata,p$fcst$cci)
 #acc_oos_VAR <-forecast::accuracy(testdata,p$fcst$google)
@@ -509,9 +555,10 @@ plot(forecasts_3)
 # AR & VAR model Heik again mit selction criteria (AIC, autoarima, varselect)
 ```{r}
 # AR(1) model 
-arima <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
+arima <- auto.arima(Data[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
 #arima <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("bic")) #1,0,0
 summary(arima) # Ins sample RMSE! 
+
 y_train <- forecast(arima, h = 3)$fitted # We make a forecast one hour ahead and we extract the fitted values from the object forecast.
 x_train <- Data_train[,"gdp"]
 rss <- sum((y_train - x_train) ** 2)
@@ -521,6 +568,7 @@ paste(c("R-squared:", round(R_squared, 4)))
 
 ##### apply model to test set
 
+#accuracy(cafe.test$fitted)
 y_pred <- forecast(Data_test[,"gdp"], model = arima, h=3)$fitted # We call the forecast function passing the testing data through the ARIMA model fitted with the training data and we extract the fitted values.
 y_test <- Data_test[,"gdp"]
 sd_test <- sd(y_test)
@@ -531,6 +579,11 @@ MAE <- mae(y_test, y_pred)
 rss <- sum((y_test - y_pred) ** 2)
 tss <- sum((y_test - mean(y_test)) ** 2)
 R_squared <- 1 - rss/tss
+
+errors <- as.ts(y_test - y_pred)
+
+adf.test(errors)
+
 
 
 #arima.OOS <- Arima(Data_test[,"gdp"], model=arima)
@@ -543,7 +596,7 @@ plot(forecast(y_pred,h=3)) # forecast 1Q  ahead!!!
 ```
 # AR(4) model wegen quarterly data
 ```{r}
-AR_4 <- Arima(Data_train[,"gdp"], order=c(4,0,0))
+AR_4 <- Arima(Data[,"gdp"], order=c(0,0,1))
 summary(AR_4)
 
 y_train <- forecast(AR_4, h = 3)$fitted # We make a forecast one hour ahead and we extract the fitted values from the object forecast.
@@ -552,6 +605,10 @@ rss <- sum((y_train - x_train) ** 2)
 tss <- sum((x_train - mean(x_train)) ** 2)
 R_squared <- 1 - rss/tss
 paste(c("R-squared:", round(R_squared, 4)))
+
+
+errors <- as.ts(y_train - x_train) # if whole set (MA(1)) and AR(2)...whole data 
+adf.test(errors) # stationaryy 
 
 ##### apply model to test set
 
@@ -568,9 +625,40 @@ R_squared <- 1 - rss/tss
 
 plot(forecast(y_pred,h=3))
 autoplot(forecast(cafe.train))
+
+errors <- as.ts(y_test - y_pred) # not stationary!! 
+
+adf.test(errors) # data train (AR(2)) stationary, non stat for MA(1)
+ 
 ```
-# do grid and then different arima models and compare by AIC
-(0,0,0) loop - later if time... not needed dont want best model gdp want impact of google in gdp forecast
+```{r}
+
+arima <- auto.arima(Data[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
+summary(arima) # 001
+
+arma1 <- arima(Data$gdp, order = c(1,0,1))
+ar2ma1 <- arima(Data$gdp, order = c(2,0,1))
+ar1 <- arima(Data$gdp, order = c(1,0,0))
+ar2 <- arima(Data$gdp, order = c(2,0,0))
+ma1 <- arima(Data$gdp, order = c(0,0,1))
+
+AIC <- AIC(arma1, ar2ma1, ar1, ar2,ma1)
+BIC<- BIC(arma1, ar2ma1, ar1, ar2,ma1)
+ab<- cbind(AIC, BIC)
+
+arima <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
+summary(arima) # 001
+
+arma1 <- Arima(Data_train$gdp, order = c(1,0,1))
+ar2ma1 <- arima(Data_train$gdp, order = c(2,0,1))
+ar1 <- arima(Data_train$gdp, order = c(1,0,0))
+ar2 <- arima(Data_train$gdp, order = c(2,0,0))
+ma1 <- arima(Data_train$gdp, order = c(0,0,1))
+
+AIC <- AIC(arma1, ar2ma1, ar1, ar2,ma1)
+BIC<- BIC(arma1, ar2ma1, ar1, ar2,ma1)
+ab<- cbind(AIC, BIC)
+```
 
 
 # Expanding window estimation instead of fixed test and train data set 
@@ -592,7 +680,7 @@ will keine expanding für ARIMA!! AR(1) ist ja nur BM und ich will prüfen ob go
 ### ist noch kein forecast...
 
 ```{r}
-expanding_window_OLS <- function(data, dep_var, start = 13){ # change to 12 
+expanding_window_OLS <- function(data, dep_var, start = 19){ # change to 12 
   expanding_OLS <- list() # empty vector
   predicted_OLS <- list()
   resid_OLS <- list()
@@ -610,12 +698,21 @@ expanding_window_OLS <- function(data, dep_var, start = 13){ # change to 12
 }
 ```
 
+# Frame for errors
+```{r}
+
+
+
+```
+
+
+
 #model1 expanding estimation
 ```{r}
 dep_var <- "gdp"
 model = gdp ~ gdp_lag
 
-expanding_OLS <- expanding_window_OLS(Data[2:63,], dep_var, start = 13)
+expanding_OLS1 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
 pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
@@ -627,29 +724,32 @@ pred <- as.ts(pred, start=c(2009,2), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 ### error in and OOS 
-error_OLS <- expanding_OLS[[4]]
-error_OLS <-error_OLS[!is.na(error_OLS)]
-MAE_OLS_OOS <- mean(abs(error_OLS))
-MAE_OLS_OOS
-RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2)) 
-RMSE_OLS_OOS
-MSE_OLS <- mean(error_OLS^2) 
-MSE_OLS
+error_OLS1 <- expanding_OLS1[[4]]
+error_OLS1 <-error_OLS1[!is.na(error_OLS1)]
+MAE_OLS_OOS1 <- mean(abs(error_OLS1))
+MAE_OLS_OOS1
+RMSE_OLS_OOS1  <- sqrt(mean(error_OLS1^2)) 
+RMSE_OLS_OOS1
+MSE_OLS1 <- mean(error_OLS1^2) 
+MSE_OLS1
+
+# table of all MAE etc und die dann calledM AE_OLS_OOS on data frame und stargazer... 
+
 # IS error terms----------------------------------------------------------------
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
-resid_OLS <- expanding_OLS[[3]]
-final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+resid_OLS1 <- expanding_OLS1[[3]]
+final_resid_OLS1 <- resid_OLS1[[length(resid_OLS1)]]
 
-RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
-RMSE_OLS_IS
+RMSE_OLS_IS1    <- sqrt(mean(final_resid_OLS1^2))
+RMSE_OLS_IS1
 
 ```
 #model2 again
 ```{r}
 model = gdp ~ cci
-expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
+expanding_OLS2 <- expanding_window_OLS(Data, dep_var, start = 19)
 
-pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) 
+pred <- do.call(rbind.data.frame, expanding_OLS2[[2]]) 
 colnames(pred) <- c("value")
 rownames(pred) <- Date_q_pred
 Date_q_pred <- Date_q[13:63]
@@ -659,14 +759,14 @@ ts.plot(pred)
 
 ### error IS? and OOS 
 
-error_OLS <- expanding_OLS[[4]]
-error_OLS <-error_OLS[!is.na(error_OLS)]
-MAE_OLS_OOS <- mean(abs(error_OLS))
-MAE_OLS_OOS
-RMSE_OLS_OOS    <- sqrt(mean(error_OLS^2)) 
-RMSE_OLS_OOS
-MSE_OLS <- mean(error_OLS^2) 
-MSE_OLS
+error_OLS2 <- expanding_OLS2[[4]]
+error_OLS2 <-error_OLS2[!is.na(error_OLS2)]
+MAE_OLS_OOS2 <- mean(abs(error_OLS2))
+MAE_OLS_OOS2
+RMSE_OLS_OOS2   <- sqrt(mean(error_OLS2^2)) 
+RMSE_OLS_OOS2
+MSE_OLS2 <- mean(error_OLS2^2) 
+MSE_OLS2
 
 # R-Sq 
 actual <- Data[13:63,"gdp"]
@@ -677,11 +777,11 @@ rsq
 
 # IS error terms----------------------------------------------------------------
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
-resid_OLS <- expanding_OLS[[3]]
-final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+resid_OLS2 <- expanding_OLS2[[3]]
+final_resid_OLS2 <- resid_OLS2[[length(resid_OLS2)]]
 
-RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
-RMSE_OLS_IS
+RMSE_OLS_IS2   <- sqrt(mean(final_resid_OLS2^2))
+RMSE_OLS_IS2
 
 # pred
 plot(forecast(pred,h=3))
@@ -690,7 +790,7 @@ plot(forecast(pred,h=3))
 #model3 again
 ```{r}
 model = gdp ~ google
-expanding_OLS <- expanding_window_OLS(Data, dep_var, start = 13)
+expanding_OLS3 <- expanding_window_OLS(Data, dep_var, start = 19)
 
 pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) 
 colnames(pred) <- c("value")
@@ -701,14 +801,14 @@ pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 ### error in and OOS 
-error_OLS <- expanding_OLS[[4]]
-error_OLS <-error_OLS[!is.na(error_OLS)]
-MAE_OLS_OOS <- mean(abs(error_OLS))
-MAE_OLS_OOS
-RMSE_OLS_OOS    <- sqrt(mean(error_OLS^2)) 
-RMSE_OLS_OOS
-MSE_OLS <- mean(error_OLS^2) 
-MSE_OLS
+error_OLS3 <- expanding_OLS3[[4]]
+error_OLS3 <-error_OLS[!is.na(error_OLS3)]
+MAE_OLS_OOS3 <- mean(abs(error_OLS3))
+MAE_OLS_OOS3
+RMSE_OLS_OOS3    <- sqrt(mean(error_OLS3^2)) 
+RMSE_OLS_OOS3
+MSE_OLS3 <- mean(error_OLS3^2) 
+MSE_OLS3
 
 # forecast pred on newly data how do i incporpare that??? 
 colnames(Google_AT_qtrly) <- c("Date_q","time","google")
@@ -724,17 +824,17 @@ MSE_OLS <- mean(error_x^2)
 MSE_OLS
 # IS error terms----------------------------------------------------------------
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
-resid_OLS <- expanding_OLS[[3]]
-final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+resid_OLS3 <- expanding_OLS3[[3]]
+final_resid_OLS3 <- resid_OLS3[[length(resid_OLS3)]]
 
-RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
-RMSE_OLS_IS
+RMSE_OLS_IS3    <- sqrt(mean(final_resid_OLS3^2))
+RMSE_OLS_IS3
 ```
 
 #model4 again
 ```{r, warning=F}
 model = gdp ~ gdp_lag + cci
-expanding_OLS <- expanding_window_OLS(Data[2:63,], dep_var, start = 13)
+expanding_OLS4 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
 pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
@@ -746,27 +846,28 @@ pred <- as.ts(pred, start=c(2009,2), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 # Errors
-error_OLS <- expanding_OLS[[4]]
-error_OLS <-error_OLS[!is.na(error_OLS)]
-MAE_OLS_OOS <- mean(abs(error_OLS))
-MAE_OLS_OOS
-RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2)) 
-RMSE_OLS_OOS
-MSE_OLS <- mean(error_OLS^2) 
-MSE_OLS
+error_OLS4 <- expanding_OLS4[[4]]
+error_OLS4 <-error_OLS4[!is.na(error_OLS)]
+MAE_OLS_OOS4 <- mean(abs(error_OLS4))
+MAE_OLS_OOS4
+RMSE_OLS_OOS4  <- sqrt(mean(error_OLS4^2)) 
+RMSE_OLS_OOS4
+MSE_OLS4 <- mean(error_OLS4^2) 
+MSE_OLS4
+
 # IS error terms----------------------------------------------------------------
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
-resid_OLS <- expanding_OLS[[3]]
-final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+resid_OLS4 <- expanding_OLS4[[3]]
+final_resid_OLS4 <- resid_OLS4[[length(resid_OLS4)]]
 
-RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
-RMSE_OLS_IS
+RMSE_OLS_IS4   <- sqrt(mean(final_resid_OLS4^2))
+RMSE_OLS_IS4
 ```
 
 #model5 again
 ```{r, warning==F}
 model = gdp ~ gdp_lag + google
-expanding_OLS <- expanding_window_OLS(Data[2:63,], dep_var, start = 13)
+expanding_OLS5 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
 pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
@@ -778,27 +879,27 @@ pred <- as.ts(pred, start=c(2009,2), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 # Errors
-error_OLS <- expanding_OLS[[4]]
-error_OLS <-error_OLS[!is.na(error_OLS)]
-MAE_OLS_OOS <- mean(abs(error_OLS))
-MAE_OLS_OOS
-RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2)) 
-RMSE_OLS_OOS
-MSE_OLS <- mean(error_OLS^2) 
-MSE_OLS
+error_OLS5 <- expanding_OLS5[[4]]
+error_OLS5 <-error_OLS5[!is.na(error_OLS5)]
+MAE_OLS_OOS5 <- mean(abs(error_OLS5))
+MAE_OLS_OOS5
+RMSE_OLS_OOS5  <- sqrt(mean(error_OLS5^2)) 
+RMSE_OLS_OOS5
+MSE_OLS5 <- mean(error_OLS5^2) 
+MSE_OLS5
 # IS error terms----------------------------------------------------------------
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
-resid_OLS <- expanding_OLS[[3]]
-final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+resid_OLS5 <- expanding_OLS5[[3]]
+final_resid_OLS5 <- resid_OLS5[[length(resid_OLS)]]
 
-RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
-RMSE_OLS_IS
+RMSE_OLS_IS5    <- sqrt(mean(final_resid_OLS5^2))
+RMSE_OLS_IS5
 ```
 
 #model6 again
 ```{r, warning=F}
 model = gdp ~ gdp_lag + cci + google
-expanding_OLS <- expanding_window_OLS(Data[2:63,], dep_var, start = 13)
+expanding_OLS6 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
 pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
@@ -810,23 +911,42 @@ pred <- as.ts(pred, start=c(2009,2), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 # Errors
-error_OLS <- expanding_OLS[[4]]
-error_OLS <-error_OLS[!is.na(error_OLS)]
-MAE_OLS_OOS <- mean(abs(error_OLS))
-MAE_OLS_OOS
-RMSE_OLS_OOS  <- sqrt(mean(error_OLS^2)) 
-RMSE_OLS_OOS
-MSE_OLS <- mean(error_OLS^2) 
-MSE_OLS
+error_OLS6 <- expanding_OLS6[[4]]
+error_OLS6 <-error_OLS6[!is.na(error_OLS6)]
+MAE_OLS_OOS6 <- mean(abs(error_OLS6))
+MAE_OLS_OOS6
+RMSE_OLS_OOS6  <- sqrt(mean(error_OLS6^2)) 
+RMSE_OLS_OOS6
+MSE_OLS6 <- mean(error_OLS6^2) 
+MSE_OLS6
 
 # IS error terms----------------------------------------------------------------
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
-resid_OLS <- expanding_OLS[[3]]
-final_resid_OLS <- resid_OLS[[length(resid_OLS)]]
+resid_OLS6 <- expanding_OLS6[[3]]
+final_resid_OLS6 <- resid_OLS6[[length(resid_OLS6)]]
 
-RMSE_OLS_IS    <- sqrt(mean(final_resid_OLS^2))
-RMSE_OLS_IS
+RMSE_OLS_IS6    <- sqrt(mean(final_resid_OLS6^2))
+RMSE_OLS_IS6
 ```
+
+Summary results
+```{r}
+comparison_MAE_OOS <- rbind("MAE_OLS_OOS" = MAE_OLS_OOS1,MAE_OLS_OOS2,MAE_OLS_OOS3,MAE_OLS_OOS4,MAE_OLS_OOS5,MAE_OLS_OOS6)
+
+comparison_RMSE_OOS <- rbind("RMSE_OLS_OOS" = RMSE_OLS_OOS1,RMSE_OLS_OOS2,RMSE_OLS_OOS3,RMSE_OLS_OOS4,RMSE_OLS_OOS5,RMSE_OLS_OOS6)
+
+comparison_RMSE_IS <- rbind("RMSE_OLS_IS" = RMSE_OLS_IS1,RMSE_OLS_IS2,RMSE_OLS_IS3,RMSE_OLS_IS4,RMSE_OLS_IS5,RMSE_OLS_IS6)
+
+ 
+comparison_OOS <- data.frame("MAE_OOS" = comparison_MAE_OOS,
+                                        "RMSE_OOS" = comparison_RMSE_OOS, 
+                                        "RMSE_IS" = comparison_RMSE_IS)
+
+stargazer::stargazer(comparison_OOS,summary=FALSE, rownames=FALSE)
+```
+
+
+
 #ARIMA(2,0,0) expanding estimation
 ```{r}
 Data$gdp_lag2 <- lag(Data$gdp_lag)
@@ -867,8 +987,6 @@ RMSE_OLS_IS
 
 # create new dataset!!!
 ```{r}
-
-
 # keep orginals ones though,...
 Data_Var <-flag(Data[1:3], 1:2)
 Data_Var <- cbind(Data[,1:3],Data_Var)## all have lag 2.... 
@@ -912,7 +1030,7 @@ RMSE_OLS_IS
 
 # do simple split OOS forecast and expanding OOS forecast
 # adjust expanding window functions (for Var, arima)
-# Forecasting with rest of the data... 
+# Forecasting with rest of the data... newdata = 2-3 obs?
 # Robustness different aggregation,  LLOCV
 #durbinWatsonTest, cumsum
 
