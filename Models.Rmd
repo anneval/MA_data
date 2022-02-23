@@ -292,17 +292,14 @@ Model 1: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \epsilon_t  \qquad  t =1,\dotsc,T
 mod1 <- lm(gdp ~ lag(gdp), data = Data_train)
 summary(mod1)
 sqrt(mean(mod1$residuals^2)) # IS 
-forecast::accuracy(mod1)
+acc_is1 <-forecast::accuracy(mod1)
 
 pred_mod1 <- predict(mod1, Data_test)
 pred_mod1
-acc_oss <-forecast::accuracy(Data_test$gdp,pred_mod1)
-acc_oss
+acc_oos1 <-forecast::accuracy(Data_test$gdp,pred_mod1)
+acc_oos1
 
 forecast_mod1 <- predict(mod1, n.ahead = 3)
-
-
-
 #plot(forecast_mod1)
 ```
 Model 2:  $GDP_t = \beta_0 +\beta_1 CCI_{t} +\epsilon_t \qquad  t =1,\dotsc,T$
@@ -314,14 +311,15 @@ Model 2:  $GDP_t = \beta_0 +\beta_1 CCI_{t} +\epsilon_t \qquad  t =1,\dotsc,T$
 mod2 <- lm(gdp ~ cci, data = Data_train)
 summary(mod2)
 sqrt(mean(mod2$residuals^2)) # IS 
-forecast::accuracy(mod2)
+acc_is2 <-forecast::accuracy(mod2)
+
 #pred_mod2
 pred_mod2 <- predict(mod2,Data_test)
-ts.plot(pred_mod2)
+#ts.plot(pred_mod2)
 #fore <- predict(mod2,newdata = Data_cci) # predict cci ...
 
-acc_oss <-forecast::accuracy(Data_test$gdp,pred_mod2)
-acc_oss
+acc_oos2 <-forecast::accuracy(Data_test$gdp,pred_mod2)
+acc_oos2
 #pred_test <- predict(mod2, cci_test)
 #mod2$coefficients
 
@@ -337,19 +335,19 @@ colnames(Data_google) <- c("time", "google")
 mod3<- lm(gdp ~ google, data = Data_train)
 summary(mod3)
 sqrt(mean(mod3$residuals^2)) # IS 
-forecast::accuracy(mod3) # IS accuracy
+acc_is3 <- forecast::accuracy(mod3) # IS accuracy
 
 pred_mod3 <- predict(mod3, Data_test)
 #pred_mod3 <- predict(mod3, Google_AT_qtrly[45:65,])
 pred_mod3
 
-acc_oss <-forecast::accuracy(Data_test$gdp,pred_mod3)
-acc_oss
+acc_oos3 <-forecast::accuracy(Data_test$gdp,pred_mod3)
+acc_oos3
 
 fore <- predict(newdata = Data_google,mod3)
 
-ts.plot(fore)
-ts.plot(Google_AT_qtrly$value)
+#ts.plot(fore)
+##ts.plot(Google_AT_qtrly$value)
 ```
 Model 4: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \epsilon_t \qquad  t =1,\dotsc,T$
 
@@ -357,13 +355,13 @@ Model 4: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \epsilon_t \qqu
 mod4<- lm(gdp ~ lag(gdp) + cci, data = Data_train)
 summary(mod4)
 sqrt(mean(mod4$residuals^2)) # IS 
-forecast::accuracy(mod4) # IS accuracy
+acc_is4 <-forecast::accuracy(mod4) # IS accuracy
 
 pred_mod4 <- predict(mod4, Data_test)
 pred_mod4
 
-acc_oss <-forecast::accuracy(Data_test$gdp,pred_mod4)
-acc_oss
+acc_oos4 <-forecast::accuracy(Data_test$gdp,pred_mod4)
+acc_oos4
 ```
 Model 5: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 GT_{t,i} + \epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
 
@@ -371,7 +369,7 @@ Model 5: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 GT_{t,i} + \epsilon_t \qq
 mod5<- lm(gdp ~ lag(gdp) + google, data = Data_train)
 summary(mod5)
 sqrt(mean(mod5$residuals^2)) # IS 
-forecast::accuracy(mod5) # IS accuracy
+acc_is5 <- forecast::accuracy(mod5) # IS accuracy
 
 pred_mod5 <- predict(mod5, Data_test)
 acc_oos5 <-forecast::accuracy(Data_test$gdp,pred_mod5)
@@ -389,20 +387,26 @@ Model 6: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \beta_3 GT_{t,i
 mod6<- lm(gdp ~ lag(gdp) + cci + google, data = Data_train)
 summary(mod6)
 sqrt(mean(mod6$residuals^2)) # IS 
-forecast::accuracy(mod6) # IS 
+acc_is6 <- forecast::accuracy(mod6) # IS 
 
 ##OOS
 pred_mod6 <- predict(mod6, Data_test)
 acc_oos6 <-forecast::accuracy(Data_test$gdp,pred_mod6)
 acc_oos6
 
-predictnew <- predict(mod6,)
+#predictnew <- predict(mod6,)
 ```
 #Summary results 
 
 ```{r}
 stargazer::stargazer(mod1,mod2,mod3,mod4,mod5,mod6)
-stargazer::stargazer(acc_oos5,acc_oos6)
+
+comparison_OLS_IS <- rbind("OLS_IS" = acc_is1,acc_is2,acc_is3,acc_is4,acc_is5,acc_is6)
+comparison_OLS_OOS <- rbind("OLS_OOS" = acc_oos1,acc_oos2,acc_oos3,acc_oos4,acc_oos5,acc_oos6)
+
+stargazer::stargazer(comparison_OLS_IS, summary = FALSE,colnames = TRUE)
+stargazer::stargazer(comparison_OLS_OOS, summary = FALSE,colnames = TRUE)
+
 ```
 
 
@@ -699,7 +703,7 @@ estimate on 1:12, predict 13, incorporate new 13 in data and estimate on 1:13, a
 
 will keine expanding für ARIMA!! AR(1) ist ja nur BM und ich will prüfen ob google data auch oos preduíctive power hat ... cci ersetzen kann besser als Ar(1) ist oder arima..change eifnach exp_ols code into ar(...)
 
-### ist noch kein forecast...
+### ist noch kein forecast...doch psequdo oos forecast 
 ```{r}
 expanding_window_OLS <- function(data, dep_var, start = 19){ # change to 12 
   expanding_OLS <- list() # empty vector
@@ -711,13 +715,34 @@ expanding_window_OLS <- function(data, dep_var, start = 19){ # change to 12
     i <- i+1
     expanding_OLS[[i]] <- lm(formula = model, data = data[1:(t-1),]) # start at 13-1 so 12! 
     resid_OLS[[i]] <- resid(expanding_OLS[[i]])
-    predicted_OLS[[i]] <- predict(expanding_OLS[[i]],newdata = data[t,])#[t,])
-    error_OLS[i]  <- as.numeric(predicted_OLS[[i]] - data[t,]) # anpassen je nach dem welchs
+    predicted_OLS[[i]] <- stats::predict(expanding_OLS[[i]],newdata = data[t,])#[t,])
+    error_OLS[i]  <- as.numeric(predicted_OLS[[i]] - data[t,1]) # anpassen je nach dem welchs
     Summary_OLS <- list(expanding_OLS,predicted_OLS,resid_OLS,error_OLS)
   }
   return(Summary_OLS)
 }
 ```
+## OLDexpandingfct
+```{r}
+expanding_window_OLS <- function(data, dep_var, start = 13){ # change to 12 
+  expanding_OLS <- list() # empty vector
+  predicted_OLS <- list()
+  resid_OLS <- list()
+  error_OLS <- c() 
+  i <- 0
+  for(t in start:nrow(data)){
+    i <- i+1
+    expanding_OLS[[i]] <- lm(formula = model, data = data[1:(t-1),])
+    resid_OLS[[i]] <- resid(expanding_OLS[[i]])
+    predicted_OLS[i] <- predict(expanding_OLS, newdata = data[t,])
+    error_OLS[i] <- as.numeric(predicted_OLS[[i]]- data[t,1]) # anpassen je nach dem welchs
+    Summary_OLS <- list(expanding_OLS,predicted_OLS, resid_OLS,error_OLS)
+  }
+  return(Summary_OLS)
+}
+```
+
+
 
 #model1 expanding estimation
 ```{r}
@@ -727,13 +752,14 @@ model = gdp ~ gdp_lag
 expanding_OLS1 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
-pred <- do.call(rbind.data.frame, expanding_OLS1[[2]]) # NAS wegen lag! 
-colnames(pred) <- c("value")
-rownames(pred) <- Date_q_pred[2:51]
+pred1 <- do.call(rbind.data.frame, expanding_OLS1[[2]]) # NAS wegen lag! 
 Date_q_pred <- Date_q[19:63]
+colnames(pred1) <- c("value")
+rownames(pred1) <- Date_q_pred[2:51]
 
-pred <- as.ts(pred, start=c(2010,3), end = c(2021,3), frequency = 4)
-ts.plot(pred)
+
+pred1 <- as.ts(pred1, start=c(2010,3), end = c(2021,3), frequency = 4)
+ts.plot(pred1)
 
 ### error in and OOS 
 error_OLS1 <- expanding_OLS1[[4]]
@@ -744,9 +770,6 @@ RMSE_OLS_OOS1  <- sqrt(mean(error_OLS1^2))
 RMSE_OLS_OOS1
 MSE_OLS1 <- mean(error_OLS1^2) 
 MSE_OLS1
-
-
-
 
 # table of all MAE etc und die dann calledM AE_OLS_OOS on data frame und stargazer... 
 
@@ -759,18 +782,34 @@ RMSE_OLS_IS1    <- sqrt(mean(final_resid_OLS1^2))
 RMSE_OLS_IS1
 
 ```
+
+# Plot model2 against GDP growth
+```{r}
+
+x<-Data[20:63,1]
+ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,3)),
+          ts(pred1,frequency = 4, start = c(2010,3)),
+    col = c("red", "blue"),
+    xlab = "Year", 
+    ylab = "GDP growth", 
+    lwd = 1)
+legend("bottomright", c("GDP growth", "AR(1)"), col=c("red","blue"), lty=c(1),
+       inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
+       )
+```
+
 #model2 again
 ```{r}
 model = gdp ~ cci
 expanding_OLS2 <- expanding_window_OLS(Data, dep_var, start = 19)
 
-pred <- do.call(rbind.data.frame, expanding_OLS2[[2]]) 
-colnames(pred) <- c("value")
-rownames(pred) <- Date_q_pred
+pred2 <- do.call(rbind.data.frame, expanding_OLS2[[2]]) 
+colnames(pred2) <- c("value")
+rownames(pred2) <- Date_q_pred
 Date_q_pred <- Date_q[19:63]
 
-pred <- as.ts(pred, start=c(2010,3), end = c(2021,3), frequency = 4)
-ts.plot(pred)
+pred2 <- as.ts(pred2, start=c(2010,3), end = c(2021,3), frequency = 4)
+#ts.plot(pred2)
 
 ### error IS? and OOS 
 
@@ -782,7 +821,6 @@ RMSE_OLS_OOS2   <- sqrt(mean(error_OLS2^2))
 RMSE_OLS_OOS2
 MSE_OLS2 <- mean(error_OLS2^2) 
 MSE_OLS2
-
 # R-Sq 
 #actual <- Data[19:63,"gdp"]
 #rss <- sum(final_resid_OLS2^2)  ## residual sum of squares
@@ -799,7 +837,22 @@ RMSE_OLS_IS2   <- sqrt(mean(final_resid_OLS2^2))
 RMSE_OLS_IS2
 
 # pred
-plot(forecast(pred,h=3))
+#plot(forecast(pred,h=3))
+```
+
+# Plot model2 against GDP growth
+```{r}
+
+ts.plot(ts(Data[19:63,1],frequency = 4, start = c(2010,3)),
+          ts(pred2,frequency = 4, start = c(2010,3)),
+    col = c("red", "blue"),
+    xlab = "Year", 
+    ylab = "Search Frequency (Wirtschaftskrise)", 
+    lwd = 1)
+legend("bottomright", c("GDP growth", "PES","CCI"), col=c("red","blue", "black"), lty=c(1),
+       inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
+       )
+
 ```
 
 #model3 again
@@ -807,13 +860,13 @@ plot(forecast(pred,h=3))
 model = gdp ~ google
 expanding_OLS3 <- expanding_window_OLS(Data, dep_var, start = 19)
 
-pred <- do.call(rbind.data.frame, expanding_OLS3[[2]]) 
-colnames(pred) <- c("value")
-rownames(pred) <- Date_q_pred
+pred3 <- do.call(rbind.data.frame, expanding_OLS3[[2]]) 
+colnames(pred3) <- c("value")
+rownames(pred3) <- Date_q_pred
 Date_q_pred <- Date_q[19:63]
 
-pred <- as.ts(pred, start=c(2010,3), end = c(2021,3), frequency = 4)
-ts.plot(pred)
+pred3 <- as.ts(pred3, start=c(2010,3), end = c(2021,3), frequency = 4)
+ts.plot(pred3)
 
 ### error in and OOS 
 error_OLS3 <- expanding_OLS3[[4]]
@@ -846,23 +899,39 @@ RMSE_OLS_IS3    <- sqrt(mean(final_resid_OLS3^2))
 RMSE_OLS_IS3
 ```
 
+
+# Plot model3 against GDP growth
+```{r}
+
+ts.plot(ts(Data[19:63,1],frequency = 4, start = c(2010,3)),
+          ts(pred3,frequency = 4, start = c(2010,3)),
+    col = c("red", "blue"),
+    xlab = "Year", 
+    ylab = "Search Frequency (Wirtschaftskrise)", 
+    lwd = 1)
+legend("bottomright", c("GDP growth", "PES"), col=c("red","blue"), lty=c(1),
+       inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
+       )
+
+```
 #model4 again
 ```{r, warning=F}
 model = gdp ~ gdp_lag + cci
 expanding_OLS4 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
-pred <- do.call(rbind.data.frame, expanding_OLS4[[2]]) # NAS wegen lag! 
-colnames(pred) <- c("value")
-rownames(pred) <- Date_q_pred[2:51]
+pred4 <- do.call(rbind.data.frame, expanding_OLS4[[2]]) # NAS wegen lag! 
 Date_q_pred <- Date_q[19:63]
 
-pred <- as.ts(pred, start=c(2010,3), end = c(2021,3), frequency = 4)
-ts.plot(pred)
+colnames(pred4) <- c("value")
+rownames(pred4) <- Date_q_pred[2:51]
+
+pred4 <- as.ts(pred4, start=c(2010,3), end = c(2021,3), frequency = 4)
+ts.plot(pred4)
 
 # Errors
 error_OLS4 <- expanding_OLS4[[4]]
-error_OLS4 <-error_OLS4[!is.na(error_OLS)]
+error_OLS4 <-error_OLS4[!is.na(error_OLS4)]
 MAE_OLS_OOS4 <- mean(abs(error_OLS4))
 MAE_OLS_OOS4
 RMSE_OLS_OOS4  <- sqrt(mean(error_OLS4^2)) 
@@ -879,19 +948,35 @@ RMSE_OLS_IS4   <- sqrt(mean(final_resid_OLS4^2))
 RMSE_OLS_IS4
 ```
 
+# Plot model4 against GDP growth
+```{r}
+
+ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,3)),
+          ts(pred2,frequency = 4, start = c(2010,3)), # KÜRZEN!
+          ts(pred4,frequency = 4, start = c(2010,3)),
+    col = c("red", "blue", "black"),
+    xlab = "Year", 
+    ylab = "Search Frequency (Wirtschaftskrise)", 
+    lwd = 1)
+legend("bottomright", c("GDP growth", "CCI", "CCI & AR(1)"), col=c("red","blue","black"), lty=c(1),
+       inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
+       )
+
+```
+
 #model5 again
 ```{r, warning==F}
 model = gdp ~ gdp_lag + google
 expanding_OLS5 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
-pred <- do.call(rbind.data.frame, expanding_OLS5[[2]]) # NAS wegen lag! 
-colnames(pred) <- c("value")
-rownames(pred) <- Date_q_pred[2:51]
+pred5 <- do.call(rbind.data.frame, expanding_OLS5[[2]]) # NAS wegen lag! 
+colnames(pred5) <- c("value")
+#rownames(pred5) <- Date_q_pred[2:51]
 Date_q_pred <- Date_q[19:63]
 
-pred <- as.ts(pred, start=c(2010,3), end = c(2021,3), frequency = 4)
-ts.plot(pred)
+pred5 <- as.ts(pred5, start=c(2010,3), end = c(2021,3), frequency = 4)
+#ts.plot(pred5)
 
 # Errors
 error_OLS5 <- expanding_OLS5[[4]]
@@ -911,19 +996,34 @@ RMSE_OLS_IS5    <- sqrt(mean(final_resid_OLS5^2))
 RMSE_OLS_IS5
 ```
 
+
+# Plot model5 against GDP growth
+```{r}
+
+ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,3)),
+          ts(pred5,frequency = 4, start = c(2010,3)),
+    col = c("red", "blue"),
+    xlab = "Year", 
+    ylab = "Search Frequency (Wirtschaftskrise)", 
+    lwd = 1)
+legend("bottomright", c("GDP growth", "PES & AR(1)"), col=c("red","blue"), lty=c(1),
+       inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
+       )
+
+```
 #model6 again
 ```{r, warning=F}
 model = gdp ~ gdp_lag + cci + google
 expanding_OLS6 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
-pred <- do.call(rbind.data.frame, expanding_OLS6[[2]]) # NAS wegen lag! 
-colnames(pred) <- c("value")
-rownames(pred) <- Date_q_pred[2:51]
+pred6 <- do.call(rbind.data.frame, expanding_OLS6[[2]]) # NAS wegen lag! 
+colnames(pred6) <- c("value")
+#rownames(pred6) <- Date_q_pred[2:51]
 Date_q_pred <- Date_q[19:63]
 
-pred <- as.ts(pred, start=c(2010,3), end = c(2021,3), frequency = 4)
-ts.plot(pred)
+pred6 <- as.ts(pred6, start=c(2010,3), end = c(2021,3), frequency = 4)
+ts.plot(pred6)
 
 # Errors
 error_OLS6 <- expanding_OLS6[[4]]
@@ -944,6 +1044,20 @@ RMSE_OLS_IS6    <- sqrt(mean(final_resid_OLS6^2))
 RMSE_OLS_IS6
 ```
 
+# Plot model6 against GDP growth
+```{r}
+
+ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,3)),
+          ts(pred6,frequency = 4, start = c(2010,3)),
+    col = c("red", "blue"),
+    xlab = "Year", 
+    ylab = "Search Frequency (Wirtschaftskrise)", 
+    lwd = 1)
+legend("bottomright", c("GDP growth", "PES"), col=c("red","blue"), lty=c(1),
+       inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
+       )
+
+```
 Summary results
 ```{r}
 comparison_MAE_OOS <- rbind("MAE_OLS_OOS" = MAE_OLS_OOS1,MAE_OLS_OOS2,MAE_OLS_OOS3,MAE_OLS_OOS4,MAE_OLS_OOS5,MAE_OLS_OOS6)
