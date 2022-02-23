@@ -408,13 +408,13 @@ stargazer::stargazer(acc_oos5,acc_oos6)
 
 #VAR model mit Varselect all 3 variables
 ```{r}
-Yselect <- VARselect(Data_train[,c(1,2)],type = "const")   
+Yselect <- VARselect(Data[,1:3],type = "const")   
 #Yselect <- VARselect(Data[,4:6],type = "none") #lag 2      # computes information criteria
   lag <- Yselect$selection[1]  # AiC, Hq auch 2 , SC auch
   
 lag 
 
-VAR_est <- VAR(y = Data[,1:3], p = lag)
+VAR_est <- VAR(y = Data_train[,c(1,3)], p = lag,type = "const")
 summary(VAR_est$varresult$gdp)
 forecast::accuracy(VAR_est$varresult$gdp) # IS accuracy
 
@@ -423,25 +423,26 @@ library(Metrics)
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
-forecasts <- predict(VAR_est,n.ahead = 3 )
+forecasts <- predict(VAR_est,n.ahead =3)
 forecasts
 
+###### OOS accuracy?
+
 plot(forecasts)
-stargazer(VAR_est$varresult)
+stargazer::stargazer(VAR_est$varresult)
 ```
 
 ### VAR(2) and 4 ... 
 ```{r}
 dat <- ts(Data_train[,1:3], frequency = 4, start = c(2006, 1))
 
-start=c(2017, 1)
+start=c(2017,1)
 end = c(2016,4)
 
 trainingdata <- window(dat, end = end)
-testdata <- window(dat, start=start)
+testdata <- window(dat, start = start)
 
-
-v <- VAR(trainingdata, p=2) # change t0 2.!!!
+v <- VAR(trainingdata, p=2,type = "const") # change t0 2.!!!
 summary(v$varresult$gdp)
 p <- predict(v, n.ahead=3)
 
@@ -460,13 +461,13 @@ acc_oos_VAR <-forecast::accuracy(testdata,p$fcst$gdp) # works!!! validated again
 
 ```
 
-
+#Manual VAR select
 ```{r}
 library(vars)
-var.AIC <- VAR(Data[,4:6],  type="none" , lag.max = 5, ic = c("AIC"))
-var.SC <- VAR(Data[,4:6],  type="none" , lag.max = 5, ic = c("SC"))
-var.AIC.c <- VAR(Data[,4:6],  type="const" , lag.max = 5, ic = c("AIC")) ## lag 2
-var.SC.c <- VAR(Data[,4:6],  type="const" , lag.max = 5, ic = c("SC")) ## lag 1
+var.AIC <- VAR(Data[,4:6],  type="none" , lag.max = 4, ic = c("AIC"))
+var.SC <- VAR(Data[,4:6],  type="none" , lag.max = 4, ic = c("SC"))
+var.AIC.c <- VAR(Data[,4:6],  type="const" , lag.max = 4, ic = c("AIC")) ## lag 2
+var.SC.c <- VAR(Data[,4:6],  type="const" , lag.max = 4, ic = c("SC")) ## lag 1
 
 AIC.woc <- cbind(AIC(var.AIC), BIC(var.AIC)) 
 AIC.wc<- cbind(AIC(var.AIC.c), BIC(var.AIC.c)) 
@@ -537,7 +538,7 @@ plot(forecasts_2)
 
 #VAR model mit Varselect gdp and google 
 ```{r}
-Yselect_3 <- VARselect(Data_train[,c(1,3)])               # computes information criteria
+Yselect_3 <- VARselect(Data[,c(1,3)])               # computes information criteria
   lag <- Yselect_3$selection[1]  
 lag  
 VAR_est_3 <- VAR(y = Data_train[,c(1,3)], p = lag)
@@ -596,8 +597,11 @@ plot(forecast(y_pred,h=3)) # forecast 1Q  ahead!!!
 ```
 # AR(4) model wegen quarterly data
 ```{r}
-AR_4 <- Arima(Data[,"gdp"], order=c(0,0,1))
+AR_4 <- stats::arima(Data_train[,"gdp"], order=c(1,0,0))
 summary(AR_4)
+
+#fcast <- forecast(AR_4, h=3)
+#print(summary(fcast))
 
 y_train <- forecast(AR_4, h = 3)$fitted # We make a forecast one hour ahead and we extract the fitted values from the object forecast.
 x_train <- Data_train[,"gdp"]
@@ -626,11 +630,12 @@ R_squared <- 1 - rss/tss
 plot(forecast(y_pred,h=3))
 autoplot(forecast(cafe.train))
 
-errors <- as.ts(y_test - y_pred) # not stationary!! 
+errors <- as.ts(y_test - y_pred) # not stationary!! OOS
 
 adf.test(errors) # data train (AR(2)) stationary, non stat for MA(1)
  
 ```
+
 ```{r}
 
 arima <- auto.arima(Data[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
@@ -660,7 +665,24 @@ BIC<- BIC(arma1, ar2ma1, ar1, ar2,ma1)
 ab<- cbind(AIC, BIC)
 ```
 
+```{r}
+AR_2 <- stats::arima(Data[,"gdp"], order=c(2,0,0))
+summary(AR_2)
 
+AR_1 <- stats::arima(Data[,"gdp"], order=c(1,0,0))
+summary(AR_1)
+
+AR_4 <- stats::arima(Data[,"gdp"], order=c(4,0,0))
+summary(AR_4)
+
+ARMA_1 <- stats::arima(Data[,"gdp"], order=c(1,0,1))
+summary(ARMA_1)
+
+MA_1 <- stats::arima(Data[,"gdp"], order=c(0,0,1))
+summary(MA_1)
+
+stargazer::stargazer(AR_1,AR_2,AR_4,ARMA_1,MA_1)
+```
 # Expanding window estimation instead of fixed test and train data set 
 # average over all 
 An expanding window works like this:
@@ -678,7 +700,6 @@ estimate on 1:12, predict 13, incorporate new 13 in data and estimate on 1:13, a
 will keine expanding für ARIMA!! AR(1) ist ja nur BM und ich will prüfen ob google data auch oos preduíctive power hat ... cci ersetzen kann besser als Ar(1) ist oder arima..change eifnach exp_ols code into ar(...)
 
 ### ist noch kein forecast...
-
 ```{r}
 expanding_window_OLS <- function(data, dep_var, start = 19){ # change to 12 
   expanding_OLS <- list() # empty vector
@@ -698,15 +719,6 @@ expanding_window_OLS <- function(data, dep_var, start = 19){ # change to 12
 }
 ```
 
-# Frame for errors
-```{r}
-
-
-
-```
-
-
-
 #model1 expanding estimation
 ```{r}
 dep_var <- "gdp"
@@ -715,12 +727,12 @@ model = gdp ~ gdp_lag
 expanding_OLS1 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
-pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
+pred <- do.call(rbind.data.frame, expanding_OLS1[[2]]) # NAS wegen lag! 
 colnames(pred) <- c("value")
 rownames(pred) <- Date_q_pred[2:51]
-Date_q_pred <- Date_q[13:63]
+Date_q_pred <- Date_q[19:63]
 
-pred <- as.ts(pred, start=c(2009,2), end = c(2021,3), frequency = 4)
+pred <- as.ts(pred, start=c(2010,3), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 ### error in and OOS 
@@ -732,6 +744,9 @@ RMSE_OLS_OOS1  <- sqrt(mean(error_OLS1^2))
 RMSE_OLS_OOS1
 MSE_OLS1 <- mean(error_OLS1^2) 
 MSE_OLS1
+
+
+
 
 # table of all MAE etc und die dann calledM AE_OLS_OOS on data frame und stargazer... 
 
@@ -752,9 +767,9 @@ expanding_OLS2 <- expanding_window_OLS(Data, dep_var, start = 19)
 pred <- do.call(rbind.data.frame, expanding_OLS2[[2]]) 
 colnames(pred) <- c("value")
 rownames(pred) <- Date_q_pred
-Date_q_pred <- Date_q[13:63]
+Date_q_pred <- Date_q[19:63]
 
-pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
+pred <- as.ts(pred, start=c(2010,3), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 ### error IS? and OOS 
@@ -769,11 +784,11 @@ MSE_OLS2 <- mean(error_OLS2^2)
 MSE_OLS2
 
 # R-Sq 
-actual <- Data[13:63,"gdp"]
-rss <- sum((pred - actual) ^ 2)  ## residual sum of squares
-tss <- sum((actual - mean(actual)) ^ 2)  ## total sum of squares
-rsq <- 1 - rss/tss
-rsq
+#actual <- Data[19:63,"gdp"]
+#rss <- sum(final_resid_OLS2^2)  ## residual sum of squares
+#tss <- sum((actual - mean(actual)) ^ 2)  ## total sum of squares
+#rsq <- 1 - rss/tss
+#rsq
 
 # IS error terms----------------------------------------------------------------
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
@@ -792,12 +807,12 @@ plot(forecast(pred,h=3))
 model = gdp ~ google
 expanding_OLS3 <- expanding_window_OLS(Data, dep_var, start = 19)
 
-pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) 
+pred <- do.call(rbind.data.frame, expanding_OLS3[[2]]) 
 colnames(pred) <- c("value")
 rownames(pred) <- Date_q_pred
-Date_q_pred <- Date_q[13:63]
+Date_q_pred <- Date_q[19:63]
 
-pred <- as.ts(pred, start=c(2009,1), end = c(2021,3), frequency = 4)
+pred <- as.ts(pred, start=c(2010,3), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 ### error in and OOS 
@@ -837,12 +852,12 @@ model = gdp ~ gdp_lag + cci
 expanding_OLS4 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
-pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
+pred <- do.call(rbind.data.frame, expanding_OLS4[[2]]) # NAS wegen lag! 
 colnames(pred) <- c("value")
 rownames(pred) <- Date_q_pred[2:51]
-Date_q_pred <- Date_q[13:63]
+Date_q_pred <- Date_q[19:63]
 
-pred <- as.ts(pred, start=c(2009,2), end = c(2021,3), frequency = 4)
+pred <- as.ts(pred, start=c(2010,3), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 # Errors
@@ -870,12 +885,12 @@ model = gdp ~ gdp_lag + google
 expanding_OLS5 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
-pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
+pred <- do.call(rbind.data.frame, expanding_OLS5[[2]]) # NAS wegen lag! 
 colnames(pred) <- c("value")
 rownames(pred) <- Date_q_pred[2:51]
-Date_q_pred <- Date_q[13:63]
+Date_q_pred <- Date_q[19:63]
 
-pred <- as.ts(pred, start=c(2009,2), end = c(2021,3), frequency = 4)
+pred <- as.ts(pred, start=c(2010,3), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 # Errors
@@ -890,7 +905,7 @@ MSE_OLS5
 # IS error terms----------------------------------------------------------------
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
 resid_OLS5 <- expanding_OLS5[[3]]
-final_resid_OLS5 <- resid_OLS5[[length(resid_OLS)]]
+final_resid_OLS5 <- resid_OLS5[[length(resid_OLS5)]]
 
 RMSE_OLS_IS5    <- sqrt(mean(final_resid_OLS5^2))
 RMSE_OLS_IS5
@@ -902,12 +917,12 @@ model = gdp ~ gdp_lag + cci + google
 expanding_OLS6 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
-pred <- do.call(rbind.data.frame, expanding_OLS[[2]]) # NAS wegen lag! 
+pred <- do.call(rbind.data.frame, expanding_OLS6[[2]]) # NAS wegen lag! 
 colnames(pred) <- c("value")
 rownames(pred) <- Date_q_pred[2:51]
-Date_q_pred <- Date_q[13:63]
+Date_q_pred <- Date_q[19:63]
 
-pred <- as.ts(pred, start=c(2009,2), end = c(2021,3), frequency = 4)
+pred <- as.ts(pred, start=c(2010,3), end = c(2021,3), frequency = 4)
 ts.plot(pred)
 
 # Errors
@@ -938,11 +953,11 @@ comparison_RMSE_OOS <- rbind("RMSE_OLS_OOS" = RMSE_OLS_OOS1,RMSE_OLS_OOS2,RMSE_O
 comparison_RMSE_IS <- rbind("RMSE_OLS_IS" = RMSE_OLS_IS1,RMSE_OLS_IS2,RMSE_OLS_IS3,RMSE_OLS_IS4,RMSE_OLS_IS5,RMSE_OLS_IS6)
 
  
-comparison_OOS <- data.frame("MAE_OOS" = comparison_MAE_OOS,
-                                        "RMSE_OOS" = comparison_RMSE_OOS, 
-                                        "RMSE_IS" = comparison_RMSE_IS)
+comparison_OOS <- data.frame(     "RMSE_OOS" = comparison_RMSE_OOS, 
+                                  "RMSE_IS" = comparison_RMSE_IS,
+                                  "MAE_OOS" = comparison_MAE_OOS)
 
-stargazer::stargazer(comparison_OOS,summary=FALSE, rownames=FALSE)
+stargazer::stargazer(comparison_OOS,summary=FALSE)
 ```
 
 
@@ -1063,4 +1078,5 @@ print(model5_CV)
 
 model6_CV <- train(gdp ~ gdp_lag + google + cci, data = Data[2:63,], method = "lm", trControl = ctrl)
 print(model6_CV)
+
 ```
