@@ -59,6 +59,8 @@ library(Metrics)
 library(caret)
 library(collapse)
 library(urca)
+library(macror) # for latex table adf 
+library(xtable) # latex table 
 ```
 
 
@@ -178,12 +180,12 @@ ggplot(Google_AT_daily, aes(x=time, y=value)) +
   scale_x_date(date_labels="%b %y",date_breaks  ="24 month")
 ```
 
-#later graph comparison
+# Later graph comparison
 ```{r}
 ##### Abilene für comparison abbilden 
 ts.plot(ts(Data[,1],frequency = 4, start = c(2006,1)),
           ts(Data[,3],frequency = 4, start = c(2006,1)),
-          ts(CCI_qtrlyx$Value,frequency = 4, start = c(2006,1)),
+          ts(CCI_qtrly$Value,frequency = 4, start = c(2006,1)),
     col = c("red", "blue","black"),
     xlab = "Year", 
     ylab = "Search Frequency (Wirtschaftskrise)", 
@@ -209,16 +211,21 @@ cci_gr <- ((cci_qtrly$value - lag(cci_qtrly$value))/lag(cci_qtrly$value))
 cci_gr <- as.data.frame(cci_gr)
 cci_gr[2:64,]
 ```
-
-
-# dataframe for later models 
+# Dataframes for later models:
 ```{r}
 Data_Var <- Data[,1:3]
 Data$gdp_lag <- lag(Data$gdp)
+
+Data_train <- Data[1:44,] # 70%
+Data_test <- Data[45:63,] #30%
 ```
 
+# Correlations:
+```{r}
+ggpairs(Data[,1:3])
+```
 
-#ADF tests: 
+# Stationarity: ADF tests 
 ```{r}
 adfgdp <- adf.test(Data$gdp) # stationary
 adfcci <- adf.test(Data$cci) # stationary
@@ -231,18 +238,9 @@ adfgoogle
 adfgdpdiff <- adf.test(diff(Data$gdp))
 adf.test(diff(Data$cci))
 adf.test(diff(Data$google))
-
-remotes::install_github("fcbarbi/macroR")
-library(macror)
-
-x<-urTable(Data[,1:3], tests = c("adf", "pp", "kpss"), order = 1, file = NULL,
-format="latex")
-
-library(xtable)
-print(xtable(x, type = "latex"), file = "stattests.tex")
-
 ```
-kss tests and phillip peron tests:
+
+#Kpss tests and phillip peron tests:
 ```{r}
 kpss.test(Data$gdp) # stationary
 kpss.test(Data$cci) #  stationary at 5%...0.09
@@ -251,25 +249,15 @@ kpss.test(Data$google) # stationary
 pp.test(Data$gdp) # stationary
 pp.test(Data$cci) # not stationary (0.21)
 pp.test(Data$google) # stationary
-
-# Johansen test  -dont need to not integrated  ofsame orders!!!
-#(https://stats.stackexchange.com/questions/301483/cointegration-if-both-variables-are-i0)
-# The null hypothesis for both forms of test is that there are no cointegrating equations.
-#Johansen’s test is a way to determine if three or more time series are cointegrated. More specifically, it assesses the validity of a cointegrating relationship, using a maximum likelihood estimates (MLE) approach. It is also used to find the number of relationships and as a tool to estimating those relationships (Wee & Tan, 1997).
-jotest=ca.jo(Data[,1:3], type="trace", K=2, ecdet="none", spec="longrun")
-summary(jotest)
-
-s = 1.000*Data[,1] - 0.02765629*Data[,2]  -0.17006873*Data[,3]
-plot(s, type="l")
-adf.test(s)
-
-
-mod6<- lm(gdp ~ cci, data = Data)
-
-adf.test(mod6$residuals, k=1) # stationarity true, have a cointegrated pair.. 
-
-
 ```
+
+Summary:
+```{r}
+x<-urTable(Data[,1:3], tests = c("adf", "pp", "kpss"), order = 1, file = NULL,
+format="latex")
+print(xtable(x, type = "latex"), file = "stattests.tex")
+```
+
 # ACF and PACF plots: Reasoning stationarity
 ```{r}
 par(mfrow = c(3,1))
@@ -282,35 +270,12 @@ pacf(Data$gdp)
 pacf(Data$cci)
 pacf(Data$google)
 ```
-# Correlations
-```{r}
-ggpairs(Data[,1:3])
-```
-
-#### Models - simple first later expanding? (and CV, robustness)
-
-```{r}
-Data_train <- Data[1:44,] # 70%
-Data_test <- Data[45:63,] #30%
-```
 
 #### Expanding Window estimation
 
-# Expanding window estimation instead of fixed test and train data set 
-# average over all 
-An expanding window works like this:
-# Use the past 100 days worth of data to estimate a regression model.
-Use the regression model to predict the stock price 1 day from now.
-Use all of the observations including the predicted value for tomorrow (i.e. observations 1 through 101) to run a regression model.
-Use this to predict the stock price 2 days from now.
-Use all of the observations including the predicted values to run a regression model.
-Use this to predict the stock price 3 days from now.
-Repeat this until you have as many observations as you want to predict
-
-not doing here...incorporate new prediction... i do many psequdo OOS forecasts 1 step ahead
-estimate on 1:12, predict 13, incorporate new 13 in data and estimate on 1:13, and predict 14 ?... 
-
-will keine expanding für ARIMA!! AR(1) ist ja nur BM und ich will prüfen ob google data auch oos preduíctive power hat ... cci ersetzen kann besser als Ar(1) ist oder arima..change eifnach exp_ols code into ar(...)
+# Expanding window estimation instead of fixed test and train data set (advantage: average over all)
+An expanding window works like this: Use the past 100 days worth of data to estimate a regression model.
+Use the regression model to predict the stock price 1 day from now. Use all of the observations including the predicted value for tomorrow (i.e. observations 1 through 101) to run a regression model. Use this to predict the stock price 2 days from now. Use all of the observations including the predicted values to run a regression model. Use this to predict the stock price 3 days from now.Repeat this until you have as many observations as you want to predict
 
 ```{r}
 expanding_window_OLS <- function(data, dep_var, start = 19){ 
@@ -321,17 +286,17 @@ expanding_window_OLS <- function(data, dep_var, start = 19){
   i <- 0
   for(t in start:nrow(data)){ # go from 19 bis 63
     i <- i+1 # first one is i=1 
-    expanding_OLS[[i]] <- lm(formula = model, data = data[1:(t-1),]) # first train is 1:19
+    expanding_OLS[[i]] <- lm(formula = model, data = data[1:(t-1),]) # first train is 1:18
     resid_OLS[[i]] <- resid(expanding_OLS[[i]])
-    predicted_OLS[i] <- predict(expanding_OLS, newdata = data[t,])### chmage herenewdatda for forecast.. aber nur 3 observationen...
-    error_OLS[i] <- as.numeric(predicted_OLS[[i]]- data[t,1]) # anpassen je nach dem welchs
+    predicted_OLS[i] <- predict(expanding_OLS, newdata = data[t,]) # change here into newdatda for forecast...
+    error_OLS[i] <- as.numeric(predicted_OLS[[i]]- data[t,1]) # against original GDP growth 
     Summary_OLS <- list(expanding_OLS,predicted_OLS, resid_OLS,error_OLS)
   }
   return(Summary_OLS)
 }
 ```
 
-#model1 expanding estimation
+# Model 1 Expanding window
 
 ```{r, message=FALSE, warning=FALSE}
 dep_var <- "gdp"
@@ -339,20 +304,14 @@ model = gdp ~ gdp_lag
 
 expanding_OLS1 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
-try2 <-try[19:62,] # q4 2010
-try_1 <-Data[19:63,]# q4 2010
-try <-Data[2:63,] 
 #predictions
-pred1 <- do.call(rbind.data.frame, expanding_OLS1[[2]]) # NAS wegen lag! 
+pred1 <- do.call(rbind.data.frame, expanding_OLS1[[2]]) # NAs wegen lag! 
 Date_q_pred <- Date_q[20:63]
-#Date_q_pred
 colnames(pred1) <- c("value")
-#rownames(pred1) <- Date_q_pred[2:51]
 
 pred1 <- as.ts(pred1, start=c(2010,4), end = c(2021,3), frequency = 4)
-##pred1
-#ts.plot(pred1)
-### error in and OOS 
+
+# Out of Sample error terms----------------------------------------------------------------
 error_OLS1 <- expanding_OLS1[[4]]
 error_OLS1 <-error_OLS1[!is.na(error_OLS1)]
 MAE_OLS_OOS1 <- mean(abs(error_OLS1))
@@ -361,9 +320,6 @@ RMSE_OLS_OOS1  <- sqrt(mean(error_OLS1^2))
 RMSE_OLS_OOS1
 MSE_OLS1 <- mean(error_OLS1^2) 
 MSE_OLS1
-
-# table of all MAE etc und die dann calledM AE_OLS_OOS on data frame und stargazer... 
-
 # IS error terms----------------------------------------------------------------
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
 resid_OLS1 <- expanding_OLS1[[3]]
@@ -371,12 +327,13 @@ final_resid_OLS1 <- resid_OLS1[[length(resid_OLS1)]]
 
 RMSE_OLS_IS1    <- sqrt(mean(final_resid_OLS1^2))
 RMSE_OLS_IS1
+
+# Autocorrelation residuals:
 checkresiduals(final_resid_OLS1)
 ```
 
-# Plot model1 against GDP growth
+# Plot Model 1 against GDP growth
 ```{r}
-#par(mfrow = c(3,1), mar = c(0.5, 4, 4, 4))
 plotexp_1 <- ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,4),end = c(2021,3)),
           ts(pred1,frequency = 4, start = c(2010,4),end = c(2021,3)),
     col = c("black", "red"),
@@ -387,7 +344,8 @@ legend("bottomleft", c("GDP growth", "AR(1)"), col=c("black","red"), lty=c(1),
         xpd=TRUE, bty="b", cex=0.75
       )
 ```
-#model2 again
+
+# Model 2 Expanding window
 ```{r, message=FALSE, warning=FALSE}
 model = gdp ~ cci
 expanding_OLS2 <- expanding_window_OLS(Data, dep_var, start = 19)
@@ -399,9 +357,7 @@ Date_q_pred <- Date_q[19:63]
 
 pred2 <- as.ts(pred2, start=c(2010,3), end = c(2021,3), frequency = 4)
 
-#ts.plot(pred2)
-
-### error IS? and OOS 
+# Out of Sample error terms----------------------------------------------------------------
 error_OLS2 <- expanding_OLS2[[4]]
 error_OLS2 <-error_OLS2[!is.na(error_OLS2)]
 MAE_OLS_OOS2 <- mean(abs(error_OLS2))
@@ -410,26 +366,21 @@ RMSE_OLS_OOS2   <- sqrt(mean(error_OLS2^2))
 RMSE_OLS_OOS2
 MSE_OLS2 <- mean(error_OLS2^2) 
 MSE_OLS2
-# R-Sq 
-#actual <- Data[19:63,"gdp"]
-#rss <- sum(final_resid_OLS2^2)  ## residual sum of squares
-#tss <- sum((actual - mean(actual)) ^ 2)  ## total sum of squares
-#rsq <- 1 - rss/tss
-#rsq
 
 # IS error terms----------------------------------------------------------------
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
 resid_OLS2 <- expanding_OLS2[[3]]
 final_resid_OLS2 <- resid_OLS2[[length(resid_OLS2)]]
-checkresiduals(final_resid_OLS2)
+
 RMSE_OLS_IS2   <- sqrt(mean(final_resid_OLS2^2))
 RMSE_OLS_IS2
 
-# pred
+# Autocorrelation residuals:
+checkresiduals(final_resid_OLS2)
 #plot(forecast(pred,h=3))
 ```
 
-# Plot model2 against GDP growth
+# Plot Model 2 against GDP growth
 ```{r, message=FALSE, warning=FALSE}
 plotexp_2 <- ts.plot(ts(Data[19:63,1],frequency = 4, start = c(2010,3)),
           ts(pred2,frequency = 4, start = c(2010,3)),
@@ -442,7 +393,7 @@ legend("bottomleft", c("GDP growth", "CCI"), col=c("black","red"), lty=c(1),
       )
 ```
 
-#model3 again
+# Model 3 Expanding window
 ```{r, message=FALSE, warning=FALSE}
 model = gdp ~ google
 expanding_OLS3 <- expanding_window_OLS(Data, dep_var, start = 19)
@@ -451,45 +402,32 @@ pred3 <- do.call(rbind.data.frame, expanding_OLS3[[2]])
 pred3
 colnames(pred3) <- c("value")
 Date_q_pred <- Date_q[19:63]
-#rownames(pred3) <- Date_q_pred
 pred3 <- as.ts(pred3, start=c(2010,3), end = c(2021,3), frequency = 4)
-#ts.plot(pred3)
-### error in and OOS 
+
+# Out of Sample error terms----------------------------------------------------------------
 error_OLS3 <- expanding_OLS3[[4]]
 error_OLS3 <-error_OLS3[!is.na(error_OLS3)]
 MAE_OLS_OOS3 <- mean(abs(error_OLS3))
 MAE_OLS_OOS3
-RMSE_OLS_OOS3    <- sqrt(mean(error_OLS3^2)) 
+RMSE_OLS_OOS3 <- sqrt(mean(error_OLS3^2)) 
 RMSE_OLS_OOS3
 MSE_OLS3 <- mean(error_OLS3^2) 
 MSE_OLS3
 
-# forecast pred on newly data how do i incporpare that??? 
-#colnames(Google_AT_qtrly) <- c("Date_q","time","google")
-
-#x <- predict(expanding_OLS[[1]][[51]],Google_AT_qtrly[64:65,]) # used last estimated model ... 
-
-#error_x  <- as.numeric(x - Google_AT_qtrly$google[64:65]) 
-#MAE_OLS_OOS <- mean(abs(error_x))
-#MAE_OLS_OOS
-##RMSE_OLS_OOS    <- sqrt(mean(error_x^2)) 
-#RMSE_OLS_OOS
-#MSE_OLS <- mean(error_x^2) 
-#MSE_OLS
 # IS error terms----------------------------------------------------------------
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
 
 resid_OLS3 <- expanding_OLS3[[3]]
 final_resid_OLS3 <- resid_OLS3[[length(resid_OLS3)]]
-checkresiduals(final_resid_OLS3)
+
 RMSE_OLS_IS3    <- sqrt(mean(final_resid_OLS3^2))
 RMSE_OLS_IS3
-```
-```{r}
-checkresiduals(expanding_OLS1[[1]]$residuals)
+
+# Autocorrelation residuals:
+checkresiduals(final_resid_OLS3)
 ```
 
-# Plot model3 against GDP growth
+# Plot Model 3 against GDP growth
 ```{r}
 plotexp_3 <- ts.plot(ts(Data[19:63,1],frequency = 4, start = c(2010,3)),
           ts(pred3,frequency = 4, start = c(2010,3)),
@@ -501,22 +439,20 @@ legend("bottomleft", c("GDP growth", "PES"), col=c("black","red"), lty=c(1),
         xpd=TRUE, bty="b", cex=0.75
       )
 ```
-#model4 again
+
+# Model 4 Expanding window
 ```{r, message=FALSE, warning=FALSE}
+
 model = gdp ~ gdp_lag + cci
   expanding_OLS4 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
 #predictions
 pred4 <- do.call(rbind.data.frame, expanding_OLS4[[2]]) # NAS wegen lag! 
 Date_q_pred <- Date_q[20:63]
-
 colnames(pred4) <- c("value")
-#rownames(pred4) <- Date_q_pred[2:51]
-
 pred4 <- as.ts(pred4, start=c(2010,4), end = c(2021,3), frequency = 4)
-#ts.plot(pred4)
 
-# Errors
+# Out of Sample error terms----------------------------------------------------------------
 error_OLS4 <- expanding_OLS4[[4]]
 error_OLS4 <-error_OLS4[!is.na(error_OLS4)]
 MAE_OLS_OOS4 <- mean(abs(error_OLS4))
@@ -530,26 +466,14 @@ MSE_OLS4
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
 resid_OLS4 <- expanding_OLS4[[3]]
 final_resid_OLS4 <- resid_OLS4[[length(resid_OLS4)]]
-
 RMSE_OLS_IS4   <- sqrt(mean(final_resid_OLS4^2))
 RMSE_OLS_IS4
+
+# Autocorrelation residuals:
 checkresiduals(final_resid_OLS4)
 ```
 
-# Plot model4 against GDP growth
-```{r}
-plotexp_4 <- ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,4)),
-          ts(pred2[2:45,],frequency = 4, start = c(2010,4)), # KÜRZEN!
-          ts(pred4,frequency = 4, start = c(2010,4)),
-    col = c("black", "red", "blue"),
-    xlab = "Year", 
-    ylab = "GDP growth (%)", 
-    lwd = 1)
-legend("bottomleft", c("GDP growth","CCI","CCI & AR(1)"), col= c("black", "red", "blue"),lty=c(1), xpd=TRUE, horiz=, bty="b",cex=0.75
-      )
-```
-
-#model5 again
+# Model 5 Expanding window
 ```{r, message=FALSE, warning=FALSE}
 model = gdp ~ gdp_lag + google
 expanding_OLS5 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
@@ -557,13 +481,10 @@ expanding_OLS5 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 #predictions
 pred5 <- do.call(rbind.data.frame, expanding_OLS5[[2]]) # NAS wegen lag! 
 colnames(pred5) <- c("value")
-#rownames(pred5) <- Date_q_pred[2:51]
 Date_q_pred <- Date_q[20:63]
-
 pred5 <- as.ts(pred5, start=c(2010,4), end = c(2021,3), frequency = 4)
-#ts.plot(pred5)
 
-# Errors
+# Out of Sample error terms----------------------------------------------------------------
 error_OLS5 <- expanding_OLS5[[4]]
 error_OLS5 <-error_OLS5[!is.na(error_OLS5)]
 MAE_OLS_OOS5 <- mean(abs(error_OLS5))
@@ -579,10 +500,12 @@ final_resid_OLS5 <- resid_OLS5[[length(resid_OLS5)]]
 
 RMSE_OLS_IS5    <- sqrt(mean(final_resid_OLS5^2))
 RMSE_OLS_IS5
+
+# Autocorrelation residuals:
 checkresiduals(final_resid_OLS5)
 ```
 
-# Plot model5 against GDP growth
+# Plot Model 4&5 against GDP growth
 ```{r}
 plotexp_5 <- ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,4)),
           ts(pred4,frequency = 4, start = c(2010,4)),
@@ -593,9 +516,9 @@ plotexp_5 <- ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,4)),
     lwd = 1)
 legend("bottomleft", c("GDP growth","CCI & AR(1)" ,"PES & AR(1)"), col=c("black","red","blue"), lty=c(1), xpd=TRUE, bty="b",cex=0.75
        )
-
 ```
-#model6 again
+
+# Model 6 Expanding window
 ```{r, message=FALSE, warning=FALSE}
 model = gdp ~ gdp_lag + cci + google
 expanding_OLS6 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
@@ -603,13 +526,10 @@ expanding_OLS6 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 #predictions
 pred6 <- do.call(rbind.data.frame, expanding_OLS6[[2]]) # NAS wegen lag! 
 colnames(pred6) <- c("value")
-#rownames(pred6) <- Date_q_pred[2:51]
 Date_q_pred <- Date_q[20:63]
-
 pred6 <- as.ts(pred6, start=c(2010,4), end = c(2021,3), frequency = 4)
-#ts.plot(pred6)
 
-# Errors
+# Out of Sample error terms----------------------------------------------------------------
 error_OLS6 <- expanding_OLS6[[4]]
 error_OLS6 <-error_OLS6[!is.na(error_OLS6)]
 MAE_OLS_OOS6 <- mean(abs(error_OLS6))
@@ -618,6 +538,7 @@ RMSE_OLS_OOS6  <- sqrt(mean(error_OLS6^2))
 RMSE_OLS_OOS6
 MSE_OLS6 <- mean(error_OLS6^2) 
 MSE_OLS6
+
 # IS error terms----------------------------------------------------------------
 # IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
 resid_OLS6 <- expanding_OLS6[[3]]
@@ -625,22 +546,11 @@ final_resid_OLS6 <- resid_OLS6[[length(resid_OLS6)]]
 
 RMSE_OLS_IS6    <- sqrt(mean(final_resid_OLS6^2))
 RMSE_OLS_IS6
+# Autocorrelation residuals:
 checkresiduals(final_resid_OLS6)
 ```
 
-# Plot model6 against GDP growth
-```{r}
-plotexp_6 <- ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,4)),
-          ts(pred6,frequency = 4, start = c(2010,4)),
-    col = c("black", "red"),
-    xlab = "Year", 
-    ylab = "GDP growth (%)", 
-    lwd = 1)
-legend("bottomright", c("GDP growth", "AR(1) & CCI & PES"), col=c("red","black"), lty=c(1),
-       inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
-       )
-```
-Model 7 CCI and PES
+# Model 7 Expanding window
 ```{r, warning=F, message=FALSE}
 model = gdp ~ cci + google
 expanding_OLS7 <- expanding_window_OLS(Data, dep_var, start = 19)
@@ -648,13 +558,10 @@ expanding_OLS7 <- expanding_window_OLS(Data, dep_var, start = 19)
 #predictions
 pred7 <- do.call(rbind.data.frame, expanding_OLS7[[2]]) # NAS wegen lag! 
 colnames(pred7) <- c("value")
-#rownames(pred6) <- Date_q_pred[2:51]
 Date_q_pred <- Date_q[19:63]
-
 pred7 <- as.ts(pred7, start=c(2010,3), end = c(2021,3), frequency = 4)
-#ts.plot(pred7)
 
-# Errors
+# Out of Sample error terms----------------------------------------------------------------
 error_OLS7 <- expanding_OLS7[[4]]
 error_OLS7 <-error_OLS7[!is.na(error_OLS7)]
 MAE_OLS_OOS7 <- mean(abs(error_OLS7))
@@ -670,9 +577,11 @@ final_resid_OLS7 <- resid_OLS7[[length(resid_OLS7)]]
 
 RMSE_OLS_IS7    <- sqrt(mean(final_resid_OLS7^2))
 RMSE_OLS_IS7
+# Autocorrelation residuals:
 checkresiduals(final_resid_OLS7)
 ```
 
+# Plot Model 6&7 against GDP growth
 ```{r}
 plotexp_7 <- ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,3)),
           ts(pred6,frequency = 4, start = c(2010,3)),
@@ -685,7 +594,7 @@ legend("bottomleft", c("GDP growth","AR(1) & CCI & PES", "CCI & PES"), col=c("bl
        )
 ```
 
-Summary results
+Summary results expanding window: 
 ```{r}
 comparison_MAE_OOS <- rbind("MAE_OLS_OOS" = MAE_OLS_OOS1,MAE_OLS_OOS2,MAE_OLS_OOS3,MAE_OLS_OOS4,MAE_OLS_OOS5,MAE_OLS_OOS6,MAE_OLS_OOS7)
 
@@ -701,57 +610,18 @@ comparison_OOS <- data.frame(     "RMSE_OOS" = comparison_RMSE_OOS,
 stargazer::stargazer(comparison_OOS,summary=FALSE)
 ```
 
-# EXtensions 
+# EXTENSIONS  
 
 ## ARIMA MODEL
 
-Arima manually 
+###Auto Arima 
 ```{r}
-arima <- auto.arima(Data[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
-summary(arima) # 001
+arima <- auto.arima(Data[,"gdp"], trace = TRUE,  ic = c("aic")) #MA(1)
+summary(arima) 
 
-arma1 <- arima(Data$gdp, order = c(1,0,1))
-ar2ma1 <- arima(Data$gdp, order = c(2,0,1))
-ar1 <- arima(Data$gdp, order = c(1,0,0))
-ar2 <- arima(Data$gdp, order = c(2,0,0))
-ma1 <- arima(Data$gdp, order = c(0,0,1))
 
-AIC <- AIC(arma1, ar2ma1, ar1, ar2,ma1)
-BIC<- BIC(arma1, ar2ma1, ar1, ar2,ma1)
-ab<- cbind(AIC, BIC)
 
-arima <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
-summary(arima) # 001
 
-arma1 <- Arima(Data_train$gdp, order = c(1,0,1))
-ar2ma1 <- arima(Data_train$gdp, order = c(2,0,1))
-ar1 <- arima(Data_train$gdp, order = c(1,0,0))
-ar2 <- arima(Data_train$gdp, order = c(2,0,0))
-ma1 <- arima(Data_train$gdp, order = c(0,0,1))
-
-AIC <- AIC(arma1, ar2ma1, ar1, ar2,ma1)
-BIC<- BIC(arma1, ar2ma1, ar1, ar2,ma1)
-ab<- cbind(AIC, BIC)
-```
-Arima manually 
-```{r}
-AR_2 <- stats::arima(Data[,"gdp"], order=c(2,0,0))
-summary(AR_2)
-
-AR_1 <- stats::arima(Data[,"gdp"], order=c(1,0,0))
-summary(AR_1)
-
-AR_4 <- stats::arima(Data[,"gdp"], order=c(4,0,0))
-summary(AR_4)
-
-ARMA_1 <- stats::arima(Data[,"gdp"], order=c(1,0,1))
-summary(ARMA_1)
-
-MA_1 <- stats::arima(Data[,"gdp"], order=c(0,0,1))
-summary(MA_1)
-
-stargazer::stargazer(AR_1,AR_2,AR_4,ARMA_1,MA_1)
-```
 
 # AR & VAR model Heik again mit selction criteria (AIC, autoarima, varselect)
 ```{r}
@@ -798,6 +668,23 @@ adf.test(errors)
 plot(forecast(y_pred,h=3)) # forecast 1Q  ahead!!! 
 
 ```
+
+Manually ARIMA  
+```{r}
+arma1 <- arima(Data$gdp, order = c(1,0,1))
+ar2ma1 <- arima(Data$gdp, order = c(2,0,1))
+ar1 <- arima(Data$gdp, order = c(1,0,0))
+ar2 <- arima(Data$gdp, order = c(2,0,0))
+ma1 <- arima(Data$gdp, order = c(0,0,1))
+
+AIC <- AIC(arma1, ar2ma1, ar1, ar2,ma1)
+BIC<- BIC(arma1, ar2ma1, ar1, ar2,ma1)
+ab<- cbind(AIC, BIC)
+
+stargazer::stargazer(arma1,ar2ma1,ar1,ar2,ma1)
+```
+
+
 
 ## VAR MODEL
 
@@ -1235,6 +1122,18 @@ expanding_window_OLS <- function(data, dep_var, start = 19){ # change to 12
   }
   return(Summary_OLS)
 }
+
+# forecast pred on newly data how do i incporpare that??? 
+
+#x <- predict(expanding_OLS[[1]][[51]],Google_AT_qtrly[64:65,]) # used last estimated model ... 
+
+#error_x  <- as.numeric(x - Google_AT_qtrly$google[64:65]) 
+#MAE_OLS_OOS <- mean(abs(error_x))
+#MAE_OLS_OOS
+##RMSE_OLS_OOS    <- sqrt(mean(error_x^2)) 
+#RMSE_OLS_OOS
+#MSE_OLS <- mean(error_x^2) 
+#MSE_OLS
 ```
 
 #ARIMA(2,0,0) expanding estimation - egal weil AR(2) basiert auf Datatrain... 
