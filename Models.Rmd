@@ -932,8 +932,6 @@ ser.test <- serial.test(VAR_est) # H0: no serial correlation
 ser.test
 ```
 
-
-
 # ROBUSTNESS
 
 # Models Heik: Standard OLS (train and test set)
