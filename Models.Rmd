@@ -616,8 +616,13 @@ stargazer::stargazer(comparison_OOS,summary=FALSE)
 
 ###Auto Arima 
 ```{r}
-arima <- auto.arima(Data[,"gdp"], trace = TRUE,  ic = c("aic")) #MA(1)
+fit <- auto.arima(Data[,"gdp"], trace = TRUE,  ic = c("aic")) #MA(1)
+arima <- Arima(Data[,"gdp"], model=fit)
 summary(arima) # IS errors
+forecast::accuracy(arima)
+
+accuracy(Data[,"gdp"],arima$fitted)
+
 adf.test(arima$residuals)
 stargazer::stargazer(arima$var.coef)
 
@@ -648,6 +653,7 @@ stargazer::stargazer(arma1,ar2ma1,ar1,ar2,ma1)
 ```{r}
 ARMA_11 <- Arima(Data$gdp, order = c(1,0,1))
 summary(ARMA_11)
+forecast::accuracy(ARMA_11)
 adf.test(ARMA_11$residuals)
 stargazer::stargazer(ARMA_11$var.coef)
 
@@ -659,136 +665,133 @@ future = forecast(ARMA_11, h = 3) # same results as predict and nahead but only 
 plot(future)
 
 ```
+
 ## VAR MODEL
 
-#Manual VAR select
-
+### Manual VAR select
+####constant or not
 ```{r}
-library(vars)
-var.AIC <- VAR(Data[,4:6],  type="none" , lag.max = 4, ic = c("AIC"))
-var.SC <- VAR(Data[,4:6],  type="none" , lag.max = 4, ic = c("SC"))
-var.AIC.c <- VAR(Data[,4:6],  type="const" , lag.max = 4, ic = c("AIC")) ## lag 2
-var.SC.c <- VAR(Data[,4:6],  type="const" , lag.max = 4, ic = c("SC")) ## lag 1
+var.AIC <- VAR(Data[,1:3],  type="none" , lag.max = 2, ic = c("AIC"))
+var.AIC.c <- VAR(Data[,1:3],  type="const" , lag.max = 2, ic = c("AIC")) ## lag 2
 
 AIC.woc <- cbind(AIC(var.AIC), BIC(var.AIC)) 
 AIC.wc<- cbind(AIC(var.AIC.c), BIC(var.AIC.c)) 
-SC.woc <- cbind(AIC(var.SC), BIC(var.SC)) 
-SC.wc <- cbind(AIC(var.SC.c), BIC(var.SC.c)) 
 
-MC.table <- rbind(AIC.woc, AIC.wc, SC.woc, SC.wc)
-MC.table.names <- rbind("using AIC without constant", "using AIC with constant",
-                        "using SC without constant","using SC with constant")  
+MC.table <- rbind(AIC.woc, AIC.wc)
+MC.table.names <- rbind("using AIC without constant", "using AIC with constant"
+                        )  
 rownames(MC.table)<- MC.table.names
 colnames(MC.table) <- cbind("AIC", "BIC")
 
 print(xtable::xtable(MC.table,caption="Model Choice Results",label="tab:mc"),
       sanitize.text.function=function(UR.table){UR.table},comment=FALSE)
-
-
-stargazer(VAR_est$varresult)
 ```
 
 ### VAR model Varselect (GDP,PES,CCI) - best expanding model
 
 ```{r}
-Yselect <- VARselect(Data[,1:3],type = "const")   
+fit_VAR1 <- VARselect(Data[,1:3],type = "const")   
 #Yselect <- VARselect(Data[,4:6],type = "none") #lag 2      # computes information criteria
-  lag <- Yselect$selection[1]  # AiC, Hq auch 2 , SC auch 
-lag 
+  lag_VAR1 <- fit_VAR1$selection[1]  # AiC, Hq auch 2 , SC auch 
+lag_VAR1 
 
-VAR_est <- VAR(y = Data[,c(1,3)], p = lag,type = "const")
-summary(VAR_est$varresult$gdp)
-forecast::accuracy(VAR_est$varresult$gdp) # IS accuracy
+VAR1_est <- VAR(y = Data[,c(1,3)], p = lag,type = "const")
+summary(VAR1_est$varresult$gdp)
+forecast::accuracy(VAR1_est$varresult$gdp) # IS accuracy
 
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
-forecast_VAR <- predict(VAR_est,n.ahead =3)  
-forecast_VAR
+forecast_VAR1<- predict(VAR1_est,n.ahead =3)  
+forecast_VAR1
 ###### OOS accuracy?
-acc_oos_VAR <-forecast::accuracy(Data$gdp,forecast_VAR$fcst$gdp) 
-plot(forecast_VAR)
-stargazer::stargazer(VAR_est$varresult)
+acc_oos_VAR1 <-forecast::accuracy(Data$gdp,forecast_VAR1$fcst$gdp) 
+plot(forecast_VAR1)
+stargazer::stargazer(VAR1_est$varresult)
 ```
 # Residual analysis
 ```{r}
-sum2 <- data.frame(
-  VAR_est$varresult$gdp$residuals,
-  VAR_est$varresult$cci$residuals,
-  VAR_est$varresult$google$residuals)
+resid_VAR1 <- data.frame(
+  VAR_est1$varresult$gdp$residuals,
+  VAR_est1$varresult$cci$residuals,
+  VAR_est1$varresult$google$residuals)
 
-adf.test(VAR_est$varresult$gdp$residuals) # stationary
-adf.test(VAR_est$varresult$cci$residuals) #stationary
-adf.test(VAR_est$varresult$google$residuals)#stationary
+adf.test(VAR_est1$varresult$gdp$residuals) # stationary
+adf.test(VAR_est1$varresult$cci$residuals) #stationary
+adf.test(VAR_est1$varresult$google$residuals)#stationary
+
+breusch_godfrey
 ```
 
 # Normality test
 ```{r}
-Normtest <- normality.test(VAR_est) # H0: normality
-print(Normtest)
-plot(Normtest)
+Normtest_VAR1 <- normality.test(VAR1_est) # H0: normality
+print(Normtest_VAR1)
+plot(Normtest_VAR1)
 ```
 
+#Autocorrelation residuals
 ```{r}
 library(car)
-durbinWatsonTest(VAR_est$varresult$google)  # Thereby, a small p-value of < 2.2e-16 indicates there is significant autocorrelation remaining in the residuals in the model below.
+durbinWatsonTest(VAR1_est$varresult$google)  # Thereby, a small p-value of < 2.2e-16 indicates there is significant autocorrelation remaining in the residuals in the model below.
 ```
+
 # serial correlation check
 ```{r}
-ser.test <- serial.test(VAR_est) # H0: no serial correlation
-ser.test
+ser.test_VAR1 <- serial.test(VAR1_est) # H0: no serial correlation
+ser.test_VAR1
 ```
 
 ### VAR with GDP AND PES - 2nd best expanding model 
 
 ```{r}
-Yselect <- VARselect(Data[,c(1,3)],type = "const")   
+fit_VAR2 <- VARselect(Data[,c(1,3)],type = "const")   
 #Yselect <- VARselect(Data[,4:6],type = "none") #lag 2      # computes information criteria
-  lag <- Yselect$selection[1]  # AiC, Hq auch 2 , SC auch 
-lag 
+  lag_VAR2 <- fit_VAR2$selection[1]  # AiC, Hq auch 2 , SC auch 
+lag_VAR2
 
-VAR_est <- VAR(y = Data[,c(1,3)], p = lag,type = "const")
-summary(VAR_est$varresult$gdp)
-forecast::accuracy(VAR_est$varresult$gdp) # IS accuracy
+VAR2_est <- VAR(y = Data[,c(1,3)], p = lag,type = "const")
+summary(VAR2_est$varresult$gdp)
+forecast::accuracy(VAR2_est$varresult$gdp) # IS accuracy
 
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
-forecasts <- predict(VAR_est,n.ahead =3)  
-forecasts
+forecast_VAR2 <- predict(VAR2_est,n.ahead =3)  
+forecast_VAR2
 ###### OOS accuracy?
-acc_oos_VAR <-forecast::accuracy(Data$gdp,forecasts$fcst$gdp) 
-plot(forecasts)
-stargazer::stargazer(VAR_est$varresult)
+acc_oos_VAR2 <-forecast::accuracy(Data$gdp,forecast_VAR2$fcst$gdp) 
+plot(forecast_VAR2)
+stargazer::stargazer(VAR2_est$varresult)
 ```
 
 # Residual analysis
 ```{r}
-sum2 <- data.frame(
-  VAR_est$varresult$gdp$residuals,
-  VAR_est$varresult$cci$residuals,
-  VAR_est$varresult$google$residuals)
+resid_VAR2 <- data.frame(
+  VAR2_est$varresult$gdp$residuals,
+  VAR2_est$varresult$cci$residuals,
+  VAR2_est$varresult$google$residuals)
 
-adf.test(VAR_est$varresult$gdp$residuals) # stationary
-adf.test(VAR_est$varresult$cci$residuals) #stationary
-adf.test(VAR_est$varresult$google$residuals)#stationary
+adf.test(VAR2_est$varresult$gdp$residuals) # stationary
+adf.test(VAR2_est$varresult$cci$residuals) #stationary
+adf.test(VAR2_est$varresult$google$residuals)#stationary
 ```
 
 # Normality test
 ```{r}
-Normtest <- normality.test(VAR_est) # H0: normality
-print(Normtest)
-plot(Normtest)
+Normtest_VAR2 <- normality.test(VAR2_est) # H0: normality
+print(Normtest_VAR2)
+plot(Normtest_VAR2)
 ```
 
 ```{r}
 library(car)
-durbinWatsonTest(VAR_est$varresult$google)  # Thereby, a small p-value of < 2.2e-16 indicates there is significant autocorrelation remaining in the residuals in the model below.
+durbinWatsonTest(VAR2_est$varresult$google)  # Thereby, a small p-value of < 2.2e-16 indicates there is significant autocorrelation remaining in the residuals in the model below.
 ```
 # serial correlation check
 ```{r}
-ser.test <- serial.test(VAR_est) # H0: no serial correlation
-ser.test
+ser.test_VAR2 <- serial.test(VAR2_est) # H0: no serial correlation
+ser.test_VAR2
 ```
 
 # ROBUSTNESS
