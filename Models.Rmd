@@ -617,56 +617,16 @@ stargazer::stargazer(comparison_OOS,summary=FALSE)
 ###Auto Arima 
 ```{r}
 arima <- auto.arima(Data[,"gdp"], trace = TRUE,  ic = c("aic")) #MA(1)
-summary(arima) 
+summary(arima) # IS errors
+adf.test(arima$residuals)
+stargazer::stargazer(arima$var.coef)
 
-
-
-
-
-# AR & VAR model Heik again mit selction criteria (AIC, autoarima, varselect)
-```{r}
-# AR(1) model 
-arima <- auto.arima(Data[,"gdp"], trace = TRUE,  ic = c("aic")) #2,0,0 # lower RMSE 
-#arima <- auto.arima(Data_train[,"gdp"], trace = TRUE,  ic = c("bic")) #1,0,0
-summary(arima) # Ins sample RMSE! 
-
-y_train <- forecast(arima, h = 3)$fitted # We make a forecast one hour ahead and we extract the fitted values from the object forecast.
-x_train <- Data[,"gdp"]
-rss <- sum((y_train - x_train) ** 2)
-tss <- sum((x_train - mean(x_train)) ** 2)
-R_squared <- 1 - rss/tss
-paste(c("R-squared:", round(R_squared, 4)))
-
-##### apply model to test set
-
-#accuracy(cafe.test$fitted)
-
-# here only 3 steps ahead or entire test data set predicted??
-
-y_pred <- forecast(Data_test[,"gdp"], model = arima, h=3)$fitted # We call the forecast function passing the testing data through the ARIMA model fitted with the training data and we extract the fitted values.
-y_test <- Data_test[,"gdp"]
-sd_test <- sd(y_test)
-RMSE <- rmse(y_test, y_pred)
-
-MAE <- mae(y_test, y_pred)
-
-rss <- sum((y_test - y_pred) ** 2)
-tss <- sum((y_test - mean(y_test)) ** 2)
-R_squared <- 1 - rss/tss
-
-errors <- as.ts(y_test - y_pred)
-
-adf.test(errors)
-
-
-
-#arima.OOS <- Arima(Data_test[,"gdp"], model=arima)
-#summary(arima.OOS)   # RMSE 5,06.
-
-#pred <- predict(arima.OOS,n.ahead = 3) # same !
-#fore <- forecast(arima.OOS,h=3) # same !
-plot(forecast(y_pred,h=3)) # forecast 1Q  ahead!!! 
-
+forecast_MA1 <-predict(arima,n.ahead = 3)
+forecast_MA1$pred
+#forecast <- forecast(Data[,"gdp"], model = arima, h = 10)$fitted # We make a forecast three periods ahead and we extract the fitted values from the object forecast.#predict forecast same here h=...
+acc_oos_MA1 <-forecast::accuracy(Data$gdp,forecast_MA1$pred) 
+future = forecast(arima, h = 3) # same results as predict and nahead but only this way plotting works!
+plot(future)
 ```
 
 Manually ARIMA  
@@ -684,8 +644,21 @@ ab<- cbind(AIC, BIC)
 stargazer::stargazer(arma1,ar2ma1,ar1,ar2,ma1)
 ```
 
+## Extension since ARMA(1,1) seems best 
+```{r}
+ARMA_11 <- Arima(Data$gdp, order = c(1,0,1))
+summary(ARMA_11)
+adf.test(ARMA_11$residuals)
+stargazer::stargazer(ARMA_11$var.coef)
 
+forecast_ARMA1 <-predict(ARMA_11,n.ahead = 3)
+forecast_ARMA1$pred
 
+acc_oos_ARMA1 <-forecast::accuracy(Data$gdp,forecast_ARMA1$pred) 
+future = forecast(ARMA_11, h = 3) # same results as predict and nahead but only this way plotting works!
+plot(future)
+
+```
 ## VAR MODEL
 
 #Manual VAR select
@@ -713,7 +686,6 @@ print(xtable::xtable(MC.table,caption="Model Choice Results",label="tab:mc"),
 
 
 stargazer(VAR_est$varresult)
-
 ```
 
 ### VAR model Varselect (GDP,PES,CCI) - best expanding model
@@ -731,11 +703,11 @@ forecast::accuracy(VAR_est$varresult$gdp) # IS accuracy
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
-forecasts <- predict(VAR_est,n.ahead =3)  
-forecasts
+forecast_VAR <- predict(VAR_est,n.ahead =3)  
+forecast_VAR
 ###### OOS accuracy?
-acc_oos_VAR <-forecast::accuracy(Data$gdp,forecasts$fcst$gdp) 
-plot(forecasts)
+acc_oos_VAR <-forecast::accuracy(Data$gdp,forecast_VAR$fcst$gdp) 
+plot(forecast_VAR)
 stargazer::stargazer(VAR_est$varresult)
 ```
 # Residual analysis
@@ -1134,6 +1106,20 @@ expanding_window_OLS <- function(data, dep_var, start = 19){ # change to 12
 #RMSE_OLS_OOS
 #MSE_OLS <- mean(error_x^2) 
 #MSE_OLS
+
+##### apply model to test set
+
+#accuracy(cafe.test$fitted)
+#y_pred <- forecast(Data_test[,"gdp"], model = arima, h=3)$fitted # We call the forecast function passing the testing data through the ARIMA model fitted with the training data and we extract the fitted values.
+#y_test <- Data_test[,"gdp"]
+#sd_test <- sd(y_test)
+#RMSE <- rmse(y_test, y_pred)
+#MAE <- mae(y_test, y_pred)
+#rss <- sum((y_test - y_pred) ** 2)
+#tss <- sum((y_test - mean(y_test)) ** 2)
+##R_squared <- 1 - rss/tss
+#errors <- as.ts(y_test - y_pred)
+#adf.test(errors)
 ```
 
 #ARIMA(2,0,0) expanding estimation - egal weil AR(2) basiert auf Datatrain... 
