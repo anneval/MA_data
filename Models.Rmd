@@ -4,40 +4,18 @@ author: "Anne Valder"
 date: "2/12/2022"
 output: html_document
 ---
-TO DO: runterschreiben was wie und dann seh ich welche Modelle... 
-
-Models I have:
-
-- AR(1) and standard OLS (split data IS and OOS) (6x)
-- AR(1) and expanding estimation  (IS and OOS) (6x) - cannot compare to others sample set, correct since incorporate prediction in new train data?
-- auto.arima model (lag selection automatic, and 4 (still have to do)) used test and train, explanation on pacf..)
-- VAR model (lag selection automatic (and pacf and acf), and 4)
+Goal which is best at forecasting GDP! (measured by out of sample accuracy)
 
 TO DO: 
-
-- forecast aus expanding
-- VAR mit test and train!!!! done
-- VAR mit expanding... done
-- tests on other models as well....! 
-- overview of results...! tables (OLS (nur robustness), Expanding, AR, VAR)
-- Do new model with consumer Google index statt economic Google index? - initialize new indices..
+- schreiben extension models, results, robustness 
+- residual tests on all models (std.ols and arima left)
+- overview of results...! tables (OLS (nur robustness), Expanding, AR, VAR) FINALE ..!
+- Compare OeNB, WIfo index - Discussion
+- consumer index - robustness forecast mit other google indices?
 
 Question: 
-- incorporate further data or not? 
 - is expanding window correct?
-
-goal which is best at forecasting GDP! (measured by out of sample accuracy)
-
-Results:
-- Which performs best out of sample of all forecasts.. descriptive and plots 
-- Compare OeNB, WIfo index 
-Robustness:
-
-Dienstag:
-Decide train test or whole sample AR and VAR!!! 
-PLots in Latex etc results beschreiben which performs best
-PLOT in comparison OeNB/ Wifo !!!
-### consumer index - robustness forecast mit other google indices?
+- non pseeudo-forecast aus expanding?
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -185,31 +163,14 @@ ggplot(Google_AT_daily, aes(x=time, y=value)) +
 ##### Abilene für comparison abbilden 
 ts.plot(ts(Data[,1],frequency = 4, start = c(2006,1)),
           ts(Data[,3],frequency = 4, start = c(2006,1)),
-          ts(CCI_qtrly$Value,frequency = 4, start = c(2006,1)),
+          ts(cci_qtrly$value,frequency = 4, start = c(2006,1)),
     col = c("red", "blue","black"),
     xlab = "Year", 
-    ylab = "Search Frequency (Wirtschaftskrise)", 
+    ylab = "GDP growth", 
     lwd = 1)
 legend("bottomright", c("GDP growth", "PES","CCI"), col=c("red","blue", "black"), lty=c(1),
        inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
        )
-
-## with growth rates of cci...
-ts.plot(ts(Data[,1],frequency = 4, start = c(2006,1)),
-          ts(Data[,3],frequency = 4, start = c(2006,1)),
-          ts(cci_gr$cci_gr,frequency = 4, start = c(2006,1)),
-    col = c("red", "blue","black"),
-    xlab = "Year", 
-    ylab = "Search Frequency (Wirtschaftskrise)", 
-    lwd = 1)
-legend("bottomright", c("GDP growth", "PES","CCI"), col=c("red","blue", "black"), lty=c(1),
-       inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
-       )
-
-
-cci_gr <- ((cci_qtrly$value - lag(cci_qtrly$value))/lag(cci_qtrly$value))  
-cci_gr <- as.data.frame(cci_gr)
-cci_gr[2:64,]
 ```
 # Dataframes for later models:
 ```{r}
@@ -252,7 +213,7 @@ pp.test(Data$google) # stationary
 ```
 
 Summary:
-```{r}
+```{r,message=FALSE, warning=FALSE}
 x<-urTable(Data[,1:3], tests = c("adf", "pp", "kpss"), order = 1, file = NULL,
 format="latex")
 print(xtable(x, type = "latex"), file = "stattests.tex")
@@ -352,7 +313,6 @@ expanding_OLS2 <- expanding_window_OLS(Data, dep_var, start = 19)
 
 pred2 <- do.call(rbind.data.frame, expanding_OLS2[[2]]) 
 colnames(pred2) <- c("value")
-rownames(pred2) <- Date_q_pred
 Date_q_pred <- Date_q[19:63]
 
 pred2 <- as.ts(pred2, start=c(2010,3), end = c(2021,3), frequency = 4)
@@ -624,7 +584,7 @@ forecast::accuracy(arima)
 accuracy(Data[,"gdp"],arima$fitted)
 
 adf.test(arima$residuals)
-stargazer::stargazer(arima$var.coef)
+stargazer::stargazer(fit$var.coef)
 
 forecast_MA1 <-predict(arima,n.ahead = 3)
 forecast_MA1$pred
@@ -695,7 +655,7 @@ fit_VAR1 <- VARselect(Data[,1:3],type = "const")
   lag_VAR1 <- fit_VAR1$selection[1]  # AiC, Hq auch 2 , SC auch 
 lag_VAR1 
 
-VAR1_est <- VAR(y = Data[,c(1,3)], p = lag,type = "const")
+VAR1_est <- VAR(y = Data[,1:3], p = lag_VAR1,type = "const")
 summary(VAR1_est$varresult$gdp)
 forecast::accuracy(VAR1_est$varresult$gdp) # IS accuracy
 
@@ -712,15 +672,14 @@ stargazer::stargazer(VAR1_est$varresult)
 # Residual analysis
 ```{r}
 resid_VAR1 <- data.frame(
-  VAR_est1$varresult$gdp$residuals,
-  VAR_est1$varresult$cci$residuals,
-  VAR_est1$varresult$google$residuals)
+  VAR1_est$varresult$gdp$residuals,
+  VAR1_est$varresult$cci$residuals,
+  VAR1_est$varresult$google$residuals)
 
-adf.test(VAR_est1$varresult$gdp$residuals) # stationary
-adf.test(VAR_est1$varresult$cci$residuals) #stationary
-adf.test(VAR_est1$varresult$google$residuals)#stationary
+adf.test(VAR1_est$varresult$gdp$residuals) # stationary
+adf.test(VAR1_est$varresult$cci$residuals) #stationary
+adf.test(VAR1_est$varresult$google$residuals)#stationary
 
-breusch_godfrey
 ```
 
 # Normality test
@@ -738,7 +697,8 @@ durbinWatsonTest(VAR1_est$varresult$google)  # Thereby, a small p-value of < 2.2
 
 # serial correlation check
 ```{r}
-ser.test_VAR1 <- serial.test(VAR1_est) # H0: no serial correlation
+#breusch_godfrey
+ser.test_VAR1 <- serial.test(VAR1_est) # H0: no serial correlation, here cannot reject H0 of no correlation
 ser.test_VAR1
 ```
 
@@ -749,8 +709,8 @@ fit_VAR2 <- VARselect(Data[,c(1,3)],type = "const")
 #Yselect <- VARselect(Data[,4:6],type = "none") #lag 2      # computes information criteria
   lag_VAR2 <- fit_VAR2$selection[1]  # AiC, Hq auch 2 , SC auch 
 lag_VAR2
-
-VAR2_est <- VAR(y = Data[,c(1,3)], p = lag,type = "const")
+VAR2_est
+VAR2_est <- VAR(y = Data[,c(1,3)], p = lag_VAR2,type = "const")
 summary(VAR2_est$varresult$gdp)
 forecast::accuracy(VAR2_est$varresult$gdp) # IS accuracy
 
@@ -769,11 +729,9 @@ stargazer::stargazer(VAR2_est$varresult)
 ```{r}
 resid_VAR2 <- data.frame(
   VAR2_est$varresult$gdp$residuals,
-  VAR2_est$varresult$cci$residuals,
   VAR2_est$varresult$google$residuals)
 
-adf.test(VAR2_est$varresult$gdp$residuals) # stationary
-adf.test(VAR2_est$varresult$cci$residuals) #stationary
+adf.test(VAR2_est$varresult$gdp$residuals) # not!!!! stationary#stationary stil have autocorrelation!!!
 adf.test(VAR2_est$varresult$google$residuals)#stationary
 ```
 
@@ -835,6 +793,7 @@ acc_oos2
 #mod2$coefficients
 
 ```
+
 Model 3:  $GDP_t = \beta_0 +\beta_1 GT_{t,i} +\epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
 
 ```{r}
@@ -855,8 +814,7 @@ pred_mod3
 acc_oos3 <-forecast::accuracy(Data_test$gdp,pred_mod3)
 acc_oos3
 
-fore <- predict(newdata = Data_google,mod3)
-
+#fore <- predict(newdata = Data_google,mod3)
 #ts.plot(fore)
 ##ts.plot(Google_AT_qtrly$value)
 ```
@@ -939,7 +897,7 @@ stargazer::stargazer(comparison_OLS_OOS, summary = FALSE,colnames = TRUE)
 # Robustness VAR models
 #### VAR(2, GDP,PES, CCI) expanding window 
 
-```{r}
+```{r, warning=FALSE,message=FALSE}
 # create new dataset!!!.
 Data_Var <-flag(Data[1:3], 1:2)
 Data_Var <- cbind(Data[,1:3],Data_Var)## all have lag 2.... 
@@ -952,7 +910,7 @@ expanding_VAR2 <- expanding_window_OLS(Data_Var[3:63,], dep_var, start = 13) # a
 #predictions
 pred_VAR2 <- do.call(rbind.data.frame, expanding_VAR2[[2]]) # NAS wegen lag! 
 colnames(pred_VAR2) <- c("value")
-rownames(pred_VAR2) <- Date_q_pred[3:51]
+#rownames(pred_VAR2) <- Date_q_pred[3:51]
 Date_q_pred <- Date_q[13:63]
 
 pred_VAR2 <- as.ts(pred_VAR2, start=c(2009,3), end = c(2021,3), frequency = 4)
@@ -978,7 +936,7 @@ RMSE_VAR2_IS
 
 #### VAR(2, GDP,PES) expanding window 
 
-```{r}
+```{r, warning=FALSE,message=FALSE}
 # create new dataset!!!.
 Data_Var <-flag(Data[c(1,3)], 1:2)
 Data_Var <- cbind(Data[,c(1,3)],Data_Var)## all have lag 2.... 
