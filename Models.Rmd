@@ -196,7 +196,7 @@ adfgdp
 adfcci
 adfgoogle
 
-adfgdpdiff <- adf.test(diff(Data$gdp))
+adf.test(diff(Data$gdp))
 adf.test(diff(Data$cci))
 adf.test(diff(Data$google))
 ```
@@ -385,6 +385,11 @@ RMSE_OLS_IS3
 
 # Autocorrelation residuals:
 checkresiduals(final_resid_OLS3)
+
+#acf(final_resid_OLS3)
+
+bgtest(gdp ~ google, order=4, data=Data)
+
 ```
 
 # Plot Model 3 against GDP growth
@@ -402,7 +407,6 @@ legend("bottomleft", c("GDP growth", "PES"), col=c("black","red"), lty=c(1),
 
 # Model 4 Expanding window
 ```{r, message=FALSE, warning=FALSE}
-
 model = gdp ~ gdp_lag + cci
   expanding_OLS4 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
 
@@ -432,7 +436,6 @@ RMSE_OLS_IS4
 # Autocorrelation residuals:
 checkresiduals(final_resid_OLS4)
 ```
-
 # Model 5 Expanding window
 ```{r, message=FALSE, warning=FALSE}
 model = gdp ~ gdp_lag + google
@@ -581,8 +584,6 @@ arima <- Arima(Data[,"gdp"], model=fit)
 summary(arima) # IS errors
 forecast::accuracy(arima)
 
-accuracy(Data[,"gdp"],arima$fitted)
-
 adf.test(arima$residuals)
 stargazer::stargazer(fit$var.coef)
 
@@ -592,6 +593,8 @@ forecast_MA1$pred
 acc_oos_MA1 <-forecast::accuracy(Data$gdp,forecast_MA1$pred) 
 future = forecast(arima, h = 3) # same results as predict and nahead but only this way plotting works!
 plot(future)
+
+checkresiduals(arima)
 ```
 
 Manually ARIMA  
@@ -623,7 +626,7 @@ forecast_ARMA1$pred
 acc_oos_ARMA1 <-forecast::accuracy(Data$gdp,forecast_ARMA1$pred) 
 future = forecast(ARMA_11, h = 3) # same results as predict and nahead but only this way plotting works!
 plot(future)
-
+checkresiduals(ARMA_11)
 ```
 
 ## VAR MODEL
@@ -657,6 +660,7 @@ lag_VAR1
 
 VAR1_est <- VAR(y = Data[,1:3], p = lag_VAR1,type = "const")
 summary(VAR1_est$varresult$gdp)
+summary(VAR1_est)
 forecast::accuracy(VAR1_est$varresult$gdp) # IS accuracy
 
 #summary(VAR_est$varresult$gdp)$adj.r.squared
@@ -669,6 +673,7 @@ acc_oos_VAR1 <-forecast::accuracy(Data$gdp,forecast_VAR1$fcst$gdp)
 plot(forecast_VAR1)
 stargazer::stargazer(VAR1_est$varresult)
 ```
+
 # Residual analysis
 ```{r}
 resid_VAR1 <- data.frame(
@@ -689,17 +694,28 @@ print(Normtest_VAR1)
 plot(Normtest_VAR1)
 ```
 
-#Autocorrelation residuals
+#Autocorrelation residuals -old 
 ```{r}
 library(car)
-durbinWatsonTest(VAR1_est$varresult$google)  # Thereby, a small p-value of < 2.2e-16 indicates there is significant autocorrelation remaining in the residuals in the model below.
+durbinWatsonTest(VAR1_est$varresult$gdp)  # Thereby, a small p-value of < 2.2e-16 indicates there is significant autocorrelation remaining in the residuals in the model below.
 ```
 
 # serial correlation check
 ```{r}
 #breusch_godfrey
-ser.test_VAR1 <- serial.test(VAR1_est) # H0: no serial correlation, here cannot reject H0 of no correlation
-ser.test_VAR1
+ser.test_VAR1_PT <- serial.test(VAR1_est,type="PT.adjusted") # H0: no serial correlation, here cannot reject H0 of no correlation
+
+ser.test_VAR_BG <- serial.test(VAR1_est,type="BG")
+
+plot(ser.test_VAR1, names = "GDP")
+
+arch.test(VAR1_est) #cannot reject the h0 that the squared residuals are a sequence of white noise, namely, the residuals are homoscedastic. 
+
+checkresiduals(VAR1_est$varresult$gdp) # only unvariate... 
+```
+```{r}
+VAR_Est_CUSUM <- stability(VAR1_est, type = "OLS-CUSUM")
+plot(VAR_Est_CUSUM)
 ```
 
 ### VAR with GDP AND PES - 2nd best expanding model 
