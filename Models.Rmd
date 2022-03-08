@@ -1270,8 +1270,29 @@ ts_dygraphs(ts_c(
 ```
 
 ```{r}
-library(xts)
-plot.xts(google_w,oecd,wwwi)
+month <- seq(as.Date("2020-01-01"), 
+             as.Date("2022-03-01"), 
+             by = "1 month")
+
+month_numeric <- as.numeric(format(month, format = "%U"))
+month_label <- format(month, format = "%b")
+scale_x_continuous(breaks = month_numeric, 
+                   labels = month_label)
+
+
+ts.plot(ts(oecd*100,frequency = 52, start = c(2020,1)),
+        ts(wwwi,frequency = 52, start = c(2020,1)),
+        ts(google_w*5,frequency = 52, start = c(2020,1)),
+        ts(wecon_oenb_test,frequency = 52, start = c(2020,10)),
+        col = c("darkgreen", "red","black","steelblue"),
+        xlab = "Time",
+        main = "Conparison Weekly Indicators",
+        lwd = 1
+        )
+legend("bottomright", c("OECD Weekly Tracker","WIFO WWWI", "PES Google Indicator", "OENB Weekly Indicator"), col=c("darkgreen", "red","black","steelblue"), lty=c(1), xpd=TRUE, bty="b",cex=0.75
+       )
 ```
+
+
 
 
