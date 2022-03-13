@@ -675,7 +675,9 @@ stargazer::stargazer(acc_is_VAR1)
 #summary(VAR_est$varresult$google)$adj.r.squared
 forecast_VAR1<- predict(VAR1_est,n.ahead =3)  
 forecast_VAR1
-stargazer::stargazer(VAR1_est$varresult)
+
+df_fcst <- as.data.frame(forecast_VAR1$fcst$google)
+stargazer::stargazer(df_fcst,summary = FALSE)
 ###### OOS accuracy?
 acc_oos_VAR1 <-forecast::accuracy(Data$gdp,forecast_VAR1$fcst$gdp) 
 plot(forecast_VAR1)
