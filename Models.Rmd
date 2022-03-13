@@ -100,7 +100,6 @@ cci_qtrly <- cci %>% group_by(Date_q) %>%
 cci_qtrly_63 <- cci_qtrly[1:63,]
 Data[(Date_q%in%cci_qtrly_63$Date_q),2] <- (cci_qtrly_63$value)
 Data$cci_ts <- ts(Data$cci, start=c(2006,1), end = c(2021,3), frequency = 4)
-
 ```
 
 # Google
@@ -148,12 +147,12 @@ ggplot(cci, aes(x=Date_m, y=value)) +
   theme(plot.title = element_text(hjust = 0.5, face ="bold")) +
   scale_x_date(date_labels="%b %y",date_breaks  ="24 month")
 
-# PES - Google
+# DESI - Google
 
 ggplot(Google_AT_daily, aes(x=time, y=value)) +
   geom_line(color = "black") +
   theme_light() +
-    labs(title = "Google Trends TrendEcon Daily Indicator AT (2006 - 2021)", x = "Years", y = "Austria's GT daily")+
+    labs(title = "Google Trends TrendEcon Daily Indicator AT (2006 - 2021)", x = "Years", y = "Austria's Google DESI")+
   theme(plot.title = element_text(hjust = 0.5, face ="bold")) +
   scale_x_date(date_labels="%b %y",date_breaks  ="24 month")
 ```
@@ -168,7 +167,7 @@ ts.plot(ts(Data[,1],frequency = 4, start = c(2006,1)),
     xlab = "Year", 
     ylab = "GDP growth", 
     lwd = 1)
-legend("bottomright", c("GDP growth", "PES","CCI"), col=c("red","blue", "black"), lty=c(1),
+legend("bottomright", c("GDP growth", "DESI","CCI"), col=c("red","blue", "black"), lty=c(1),
        inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
        )
 ```
@@ -386,9 +385,6 @@ RMSE_OLS_IS3
 # Autocorrelation residuals:
 checkresiduals(final_resid_OLS3)
 
-#acf(final_resid_OLS3)
-
-bgtest(gdp ~ google, order=4, data=Data)
 
 ```
 
@@ -400,7 +396,7 @@ plotexp_3 <- ts.plot(ts(Data[19:63,1],frequency = 4, start = c(2010,3)),
     xlab = "Year", 
     ylab = "GDP growth (%)", 
     lwd = 1)
-legend("bottomleft", c("GDP growth", "PES"), col=c("black","red"), lty=c(1),
+legend("bottomleft", c("GDP growth", "DESI"), col=c("black","red"), lty=c(1),
         xpd=TRUE, bty="b", cex=0.75
       )
 ```
@@ -477,7 +473,7 @@ plotexp_5 <- ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,4)),
     xlab = "Year", 
    ylab = "GDP growth (%)", 
     lwd = 1)
-legend("bottomleft", c("GDP growth","CCI & AR(1)" ,"PES & AR(1)"), col=c("black","red","blue"), lty=c(1), xpd=TRUE, bty="b",cex=0.75
+legend("bottomleft", c("GDP growth","CCI & AR(1)" ,"DESI & AR(1)"), col=c("black","red","blue"), lty=c(1), xpd=TRUE, bty="b",cex=0.75
        )
 ```
 
@@ -553,7 +549,7 @@ plotexp_7 <- ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,3)),
     xlab = "Year", 
     ylab = "GDP growth (%)", 
     lwd = 1)
-legend("bottomleft", c("GDP growth","AR(1) & CCI & PES", "CCI & PES"), col=c("black","red","blue"), lty=c(1), xpd=TRUE, bty="b",cex=0.75
+legend("bottomleft", c("GDP growth","AR(1) & CCI & DESI", "CCI & DESI"), col=c("black","red","blue"), lty=c(1), xpd=TRUE, bty="b",cex=0.75
        )
 ```
 
@@ -649,13 +645,13 @@ var.AIC.c <- VAR(Data[,1:3],  type="const" , lag.max = 2, ic = c("AIC")) ## lag 
 AIC.woc <- cbind(AIC(var.AIC), BIC(var.AIC)) 
 AIC.wc<- cbind(AIC(var.AIC.c), BIC(var.AIC.c)) 
 
-MC.table <- rbind(AIC.woc, AIC.wc)
-MC.table.names <- rbind("using AIC without constant", "using AIC with constant"
+MChoice_table <- rbind(AIC.woc, AIC.wc)
+MChoice_table.names <- rbind("using AIC without constant", "using AIC with constant"
                         )  
-rownames(MC.table)<- MC.table.names
-colnames(MC.table) <- cbind("AIC", "BIC")
+rownames(MChoice_table)<- MChoice_table.names
+colnames(MChoice_table) <- cbind("AIC", "BIC")
 
-print(xtable::xtable(MC.table,caption="Model Choice Results",label="tab:mc"),
+print(xtable::xtable(MChoice_table,caption="Model Choice Results",label="tab:mc"),
       sanitize.text.function=function(UR.table){UR.table},comment=FALSE)
 ```
 
@@ -672,19 +668,18 @@ summary(VAR1_est$varresult$gdp)
 summary(VAR1_est)
 acc_is_VAR1 <- forecast::accuracy(VAR1_est$varresult$gdp) # IS accuracy
 
-stargazer::stargazer(acc_oos_VAR1)
+stargazer::stargazer(acc_is_VAR1)
 
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
 forecast_VAR1<- predict(VAR1_est,n.ahead =3)  
 forecast_VAR1
-forecast_VAR1 <- as.data.frame(forecast_VAR1)
 stargazer::stargazer(VAR1_est$varresult)
 ###### OOS accuracy?
 acc_oos_VAR1 <-forecast::accuracy(Data$gdp,forecast_VAR1$fcst$gdp) 
 plot(forecast_VAR1)
-stargazer::stargazer(VAR1_est$varresult)
+stargazer::stargazer(acc_oos_VAR1)
 ```
 
 # Residual analysis
@@ -698,6 +693,8 @@ adf.test(VAR1_est$varresult$gdp$residuals) # stationary
 adf.test(VAR1_est$varresult$cci$residuals) #stationary
 adf.test(VAR1_est$varresult$google$residuals)#stationary
 
+Box.test(resid_VAR1$VAR1_est.varresult.gdp.residuals, type="Ljung-Box") # cannot rejet H0 The residuals are independently distributed.Ideally, we would like to fail to reject the null hypothesis. That is, we would like to see the p-value of the test be greater than 0.05 because this means the residuals for our time series model are independent, which is often an assumption we make when creating a mode
+
 ```
 
 # Normality test
@@ -707,7 +704,7 @@ print(Normtest_VAR1)
 plot(Normtest_VAR1)
 ```
 
-#Autocorrelation residuals -old 
+#Autocorrelation residuals # old 
 ```{r}
 library(car)
 durbinWatsonTest(VAR1_est$varresult$gdp)  # Thereby, a small p-value of < 2.2e-16 indicates there is significant autocorrelation remaining in the residuals in the model below.
@@ -715,21 +712,42 @@ durbinWatsonTest(VAR1_est$varresult$gdp)  # Thereby, a small p-value of < 2.2e-1
 
 # serial correlation check
 ```{r}
-#breusch_godfrey
+#Portmanteau
+#The null hypothesis of no autocorrelation 
 ser.test_VAR1_PT <- serial.test(VAR1_est,type="PT.adjusted") # H0: no serial correlation, here cannot reject H0 of no correlation
+ser.test_VAR1_PT  # here the null of no autocorrelation cannot be rejected, so no autocorrelation!
+plot(ser.test_VAR1_PT, names = "GDP")
 
-ser.test_VAR_BG <- serial.test(VAR1_est,type="BG")
+stargazer::stargazer(ser.test_VAR1_PT)
+#breusch_godfrey
+ser.test_VAR_BG <- serial.test(VAR1_est,type="BG") # H0 (null hypothesis): There is no autocorrelation at any order less than or equal to p.
+ser.test_VAR_BG # here the null of no autocorrelation cannot be rejected, so no autocorrelation!
+plot(ser.test_VAR_BG, names = "GDP")
 
-plot(ser.test_VAR1, names = "GDP")
-
-arch.test(VAR1_est) #cannot reject the h0 that the squared residuals are a sequence of white noise, namely, the residuals are homoscedastic. 
-
+archtestVAR1 <- arch.test(VAR1_est) #cannot reject the h0 that the squared residuals are a sequence of white noise, namely, the residuals are homoscedastic. 
+plot(archtestVAR1)
 checkresiduals(VAR1_est$varresult$gdp) # only unvariate... 
 ```
 ```{r}
 VAR_Est_CUSUM <- stability(VAR1_est, type = "OLS-CUSUM")
+VAR_Est_CUSUM
 plot(VAR_Est_CUSUM)
 ```
+### Summary Results Model diagnostics
+```{r}
+MDiagnostics_table <- cbind(ser.test_VAR1_PT$serial,ser.test_VAR_BG$serial,archtestVAR1$arch.mul,Normtest_VAR1$jb.mul$JB) 
+
+MDiagnostics_table.names <- rbind("Chi-squared
+","df","p-values", "method","data.name
+"
+                        )  
+rownames(MDiagnostics_table)<- MDiagnostics_table.names
+colnames(MDiagnostics_table) <- cbind("Portmanteau", "Breusch-Godfrey LM","JB-Test", "ARCH-LM")
+
+print(xtable::xtable(MDiagnostics_table,caption="Model diagnostics results",label="Modeldiagnostics"),
+      sanitize.text.function=function(UR.table){UR.table},comment=FALSE)
+```
+
 
 ### VAR with GDP AND PES - 2nd best expanding model 
 
@@ -780,6 +798,8 @@ durbinWatsonTest(VAR2_est$varresult$google)  # Thereby, a small p-value of < 2.2
 ser.test_VAR2 <- serial.test(VAR2_est) # H0: no serial correlation
 ser.test_VAR2
 ```
+
+
 #### VAR(2, GDP,PES, CCI) expanding window 
 
 ```{r, warning=FALSE,message=FALSE}
@@ -827,9 +847,8 @@ comparison_errors <- data.frame(     "RMSE_OOS" = RMSE_VAR2_OOS,
                                   "RMSE_IS" = RMSE_VAR2_IS,
                                   "MAE_OOS" = MAE_VAR2_OOS)
 
-stargazer::stargazer(comparison_errors,summary=FALSE)
+stargazer::stargazer(comparison_errors,summary=FALSE)```
 ```
-
 
 # ROBUSTNESS
 
@@ -959,8 +978,10 @@ acc_oos7
 #predictnew <- predict(mod6,)
 ```
 
+
+
 #Summary results 
-# Add model 7
+
 ```{r}
 stargazer::stargazer(mod1,mod2,mod3,mod4,mod5,mod6, mod7)
 
@@ -1043,6 +1064,17 @@ print(model6_CV)
 
 model7_CV <- train(gdp ~ google + cci, data = Data, method = "lm", trControl = ctrl)
 print(model7_CV)
+
+results <- rbind("LOOCV" = model7_CV$results,model6_CV$results,model5_CV$results,model4_CV$results,model3_CV$results,model2_CV$results,model1_CV$results)
+
+```
+
+### Summary Results Model diagnostics
+```{r}
+LOOCV_table <- rbind(model7_CV$results,model6_CV$results,model5_CV$results,model4_CV$results,model3_CV$results,model2_CV$results,model1_CV$results) 
+                        )  
+print(xtable::xtable(LOOCV_table,caption="LOOCV results",label="LOOCVresults"),
+      sanitize.text.function=function(UR.table){UR.table},comment=FALSE)
 ```
 
 ## Further possible Extensions
@@ -1254,12 +1286,12 @@ wecon_oenb_test <- wecon_oenb_test %>% ts_xts()
 ### Plot
 library(dygraphs)
 ts_dygraphs(ts_c(
-  `PES Google Indicator` = google_w * 5,
+  `Google DESI` = google_w * 5,
   `WIFO WWWI` = wwwi,
   `OECD Weekly Tracker` = oecd * 100,
   `OENB Weekly Indicator` = wecon_oenb_test
 ))  %>%
-  dySeries("PES Google Indicator", strokeWidth=2, color = "black") %>%
+  dySeries("Google DESI", strokeWidth=2, color = "black") %>%
   dySeries("WIFO WWWI", strokeWidth = 2,  color = "red") %>%
   dySeries("OECD Weekly Tracker", strokeWidth = 2,  color = "green") %>%
   dySeries("OENB Weekly Indicator", strokeWidth = 2,  color = "steelblue") %>%
@@ -1286,13 +1318,76 @@ ts.plot(ts(oecd*100,frequency = 52, start = c(2020,1)),
         ts(wecon_oenb_test,frequency = 52, start = c(2020,10)),
         col = c("darkgreen", "red","black","steelblue"),
         xlab = "Time",
-        main = "Conparison Weekly Indicators",
+        main = "",
         lwd = 1
         )
-legend("bottomright", c("OECD Weekly Tracker","WIFO WWWI", "PES Google Indicator", "OENB Weekly Indicator"), col=c("darkgreen", "red","black","steelblue"), lty=c(1), xpd=TRUE, bty="b",cex=0.75
+legend("bottomright", c("OECD Weekly Tracker","WIFO WWWI", "Google DESI", "OENB Weekly Indicator"), col=c("darkgreen", "red","black","steelblue"), lty=c(1), xpd=TRUE, bty="b",cex=0.75
        )
 ```
+# Robustness MIDAS
+```{r}
+install.packages("midasr")
+library(midasr)
 
+
+midas1 <-lm(y~trend+mls(x,k=0:7,m=4)+mls(z,k=0:16, m=12))
+
+
+data("USqgdp", package = "midasr")
+data("USpayems", package = "midasr")
+y <- window(USqgdp, end = c(2011, 2)) #Q2 -> also q3 als NA
+x <- window(USpayems, end = c(2011, 7))
+yg <- diff(log(y)) * 100
+xg <- diff(log(x)) * 100
+nx <- ts(c(NA,xg), start = start(x), frequency = 12)
+ny <- ts(c(rep(NA, 33), yg, NA), start = start(x), frequency = 4)
+
+
+xx <- window(nx, start = c(1985, 1), end = c(2009, 3))
+yy <- window(ny, start = c(1985, 1), end = c(2009, 1))
+
+beta0 <- midas_r(yy ~ mls(yy, 1, 1) + mls(xx, 3:11, 3, nbeta),start = list(xx = c(1.7, 1, 5)))
+
+coef(beta0)
+
+
+betan <- midas_r(yy ~ mls(yy, 1, 1) + mls(xx, 3:11, 3, nbetaMT), start = list(xx = c(2, 1, 5, 0)))
+
+coef(betan)
+
+### use this for model 1,2,4, monthly and quarteroy daata and AR 
+##BUT expanding how???
+
+
+um <- midas_r(yy ~ mls(yy,1, 1) + mls(xx, 0:1, 3), start = NULL)
+coef(um)
+
+fulldata <- list(xx = window(nx, start = c(1985, 1), end = c(2011, 7)),yy = window(ny, start = c(1985, 1), end = c(2011, 2)))
+insample <- 1:length(yy)
+outsample <- (1:length(fulldata$yy))[-insample]
+
+avgf <- average_forecast(list(um), data = fulldata, insample = insample, outsample = outsample, type = "recursive")
+
+sqrt(avgf$accuracy$individual$MSE.out.of.sample) # RMSE
+```
+
+MIDAS trial GDP und CCI
+```{r}
+cci_ts <- ts(cci$value, start=c(2006,1), end = c(2021,12), frequency = 12)
+y <- window(gdp_ts, end = c(2021, 2))
+x <- window(cci_ts, end = c(2021, 7))
+
+yg <- diff(log(y)) * 100
+xg <- diff(log(x)) * 100
+
+nx <- ts(c(NA, xg, NA, NA),start = start(x), frequency = 12)
+ny <- ts(c(NA,yg), start = start(x), frequency = 4)
+
+um <- midas_r(y ~ mls(y,1, 1) +mls(x, 0:1, 3), start = NULL)
+coef(um)
+
+
+```
 
 
 
