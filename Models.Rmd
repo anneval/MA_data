@@ -569,6 +569,8 @@ comparison_OOS <- data.frame(     "RMSE_OOS" = comparison_RMSE_OOS,
                                   "MAE_OOS" = comparison_MAE_OOS)
 
 stargazer::stargazer(comparison_OOS,summary=FALSE)
+
+print(xtable::xtable(comparison_OOS, label = "tab:acc", caption = "3-month ahead rolling in-sample forecast. Displayed here are several accuracy measures for the PES forecasting model."),  include.rownames = FALSE, type="html")
 ```
 
 # EXTENSIONS  
@@ -665,7 +667,7 @@ fit_VAR1 <- VARselect(Data[,1:3],type = "const")
   lag_VAR1 <- fit_VAR1$selection[1]  # AiC, Hq auch 2 , SC auch 
 lag_VAR1 
 
-VAR1_est <- VAR(y = Data[,1:3], p = lag_VAR1,type = "const")
+VAR1_est <- forecast::var(y = Data[,1:3], p = lag_VAR1,type = "const")
 summary(VAR1_est$varresult$gdp)
 summary(VAR1_est)
 acc_is_VAR1 <- forecast::accuracy(VAR1_est$varresult$gdp) # IS accuracy
@@ -684,6 +686,9 @@ stargazer::stargazer(df_fcst,summary = FALSE)
 acc_oos_VAR1 <-forecast::accuracy(Data$gdp,forecast_VAR1$fcst$gdp) 
 plot(forecast_VAR1)
 stargazer::stargazer(acc_oos_VAR1)
+
+forecast::autoplot(forecast_VAR1)
+forecast::autoplot(stats::predict(var6, n.ahead=horizon))
 ```
 
 # Residual analysis
