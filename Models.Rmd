@@ -130,10 +130,12 @@ par(mfrow = c(3,1))
 
 # GDP
 
+Sys.setlocale("LC_TIME", "C")
+
 ggplot(gdp, aes(x=Date_q, y=value,col = variable)) +
   geom_line(color = "steelblue") +
   theme_light() +
-  labs(title = "Quarterly GDP Growth Rate (Q1 2006 - Q3 2021)", x = "Years", y = "Austria's GDP growth (in%)")+
+  labs(x = "Time", y = "Austria's GDP growth (in%)")+
   theme(plot.title = element_text(hjust = 0.5, face ="bold")) +
   scale_x_date(date_labels="%b %y",date_breaks  ="24 month")
   
@@ -143,7 +145,7 @@ ggplot(gdp, aes(x=Date_q, y=value,col = variable)) +
 ggplot(cci, aes(x=Date_m, y=value)) +
   geom_line(color = "steelblue") +
   theme_light() +
-    labs(title = "Consumer Confidence Austria 2006-2021 (Monthly)", x = "Years", y = "Austria's Consumer Confidence (total)")+
+    labs( x = "Time", y = "Austria's Consumer Confidence (total)")+
   theme(plot.title = element_text(hjust = 0.5, face ="bold")) +
   scale_x_date(date_labels="%b %y",date_breaks  ="24 month")
 
@@ -152,7 +154,7 @@ ggplot(cci, aes(x=Date_m, y=value)) +
 ggplot(Google_AT_daily, aes(x=time, y=value)) +
   geom_line(color = "black") +
   theme_light() +
-    labs(title = "Google Trends TrendEcon Daily Indicator AT (2006 - 2021)", x = "Years", y = "Austria's Google DESI")+
+    labs( x = "Time", y = "Austria's Google DESI")+
   theme(plot.title = element_text(hjust = 0.5, face ="bold")) +
   scale_x_date(date_labels="%b %y",date_breaks  ="24 month")
 ```
