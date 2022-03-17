@@ -687,8 +687,11 @@ acc_oos_VAR1 <-forecast::accuracy(Data$gdp,forecast_VAR1$fcst$gdp)
 plot(forecast_VAR1)
 stargazer::stargazer(acc_oos_VAR1)
 
-forecast::autoplot(forecast_VAR1)
-forecast::autoplot(stats::predict(var6, n.ahead=horizon))
+acc_Var <- rbind(acc_oos_VAR1,acc_is_VAR1)
+
+
+#forecast::autoplot(forecast_VAR1)
+#forecast::autoplot(stats::predict(var6, n.ahead=horizon))
 ```
 
 # Residual analysis
@@ -744,11 +747,10 @@ plot(VAR_Est_CUSUM)
 ```
 ### Summary Results Model diagnostics
 ```{r}
-MDiagnostics_table <- cbind(ser.test_VAR1_PT$serial,ser.test_VAR_BG$serial,archtestVAR1$arch.mul,Normtest_VAR1$jb.mul$JB) 
+MDiagnostics_table <- cbind(ser.test_VAR1_PT$serial,ser.test_VAR_BG$serial,archtestVAR1$arch.mul,Normtest_VAR1$jb.mul$JB)[1:4,]
 
 MDiagnostics_table.names <- rbind("Chi-squared
-","df","p-values", "method","data.name
-"
+","df","p-values", "method"
                         )  
 rownames(MDiagnostics_table)<- MDiagnostics_table.names
 colnames(MDiagnostics_table) <- cbind("Portmanteau", "Breusch-Godfrey LM","JB-Test", "ARCH-LM")
@@ -856,7 +858,7 @@ comparison_errors <- data.frame(     "RMSE_OOS" = RMSE_VAR2_OOS,
                                   "RMSE_IS" = RMSE_VAR2_IS,
                                   "MAE_OOS" = MAE_VAR2_OOS)
 
-stargazer::stargazer(comparison_errors,summary=FALSE)```
+stargazer::stargazer(comparison_errors,summary=FALSE)
 ```
 
 # ROBUSTNESS
