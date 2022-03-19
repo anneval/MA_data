@@ -39,6 +39,7 @@ library(collapse)
 library(urca)
 library(macror) # for latex table adf 
 library(xtable) # latex table 
+library(midasr) # Mixed data sampling models
 ```
 
 
@@ -664,21 +665,24 @@ print(xtable::xtable(MChoice_table,caption="Model Choice Results",label="tab:mc"
 ```{r}
 fit_VAR1 <- VARselect(Data[,1:3],type = "const")   
 #Yselect <- VARselect(Data[,4:6],type = "none") #lag 2      # computes information criteria
-  lag_VAR1 <- fit_VAR1$selection[1]  # AiC, Hq auch 2 , SC auch 
+lag_VAR1 <- fit_VAR1$selection[1]  # AiC, Hq auch 2 , SC auch 
 lag_VAR1 
 
-VAR1_est <- forecast::var(y = Data[,1:3], p = lag_VAR1,type = "const")
+VAR1_est <- vars::VAR(y = Data[,1:3], p = lag_VAR1,type = "const")
 summary(VAR1_est$varresult$gdp)
 summary(VAR1_est)
 acc_is_VAR1 <- forecast::accuracy(VAR1_est$varresult$gdp) # IS accuracy
 
 stargazer::stargazer(acc_is_VAR1)
 
+
+
 #summary(VAR_est$varresult$gdp)$adj.r.squared
 #summary(VAR_est$varresult$cci)$adj.r.squared
 #summary(VAR_est$varresult$google)$adj.r.squared
 forecast_VAR1<- predict(VAR1_est,n.ahead =3)  
 forecast_VAR1
+
 
 df_fcst <- as.data.frame(forecast_VAR1$fcst$google)
 stargazer::stargazer(df_fcst,summary = FALSE)
@@ -1336,69 +1340,229 @@ legend("bottomright", c("OECD Weekly Tracker","WIFO WWWI", "Google DESI", "OENB 
        )
 ```
 # Robustness MIDAS
-```{r}
-install.packages("midasr")
-library(midasr)
+SIMPLE version!!! 
 
 
-midas1 <-lm(y~trend+mls(x,k=0:7,m=4)+mls(z,k=0:16, m=12))
-
-
-data("USqgdp", package = "midasr")
-data("USpayems", package = "midasr")
-y <- window(USqgdp, end = c(2011, 2)) #Q2 -> also q3 als NA
-x <- window(USpayems, end = c(2011, 7))
-yg <- diff(log(y)) * 100
-xg <- diff(log(x)) * 100
-nx <- ts(c(NA,xg), start = start(x), frequency = 12)
-ny <- ts(c(rep(NA, 33), yg, NA), start = start(x), frequency = 4)
-
-
-xx <- window(nx, start = c(1985, 1), end = c(2009, 3))
-yy <- window(ny, start = c(1985, 1), end = c(2009, 1))
-
-beta0 <- midas_r(yy ~ mls(yy, 1, 1) + mls(xx, 3:11, 3, nbeta),start = list(xx = c(1.7, 1, 5)))
-
-coef(beta0)
-
-
-betan <- midas_r(yy ~ mls(yy, 1, 1) + mls(xx, 3:11, 3, nbetaMT), start = list(xx = c(2, 1, 5, 0)))
-
-coef(betan)
-
-### use this for model 1,2,4, monthly and quarteroy daata and AR 
-##BUT expanding how???
-
-
-um <- midas_r(yy ~ mls(yy,1, 1) + mls(xx, 0:1, 3), start = NULL)
-coef(um)
-
-fulldata <- list(xx = window(nx, start = c(1985, 1), end = c(2011, 7)),yy = window(ny, start = c(1985, 1), end = c(2011, 2)))
-insample <- 1:length(yy)
-outsample <- (1:length(fulldata$yy))[-insample]
-
-avgf <- average_forecast(list(um), data = fulldata, insample = insample, outsample = outsample, type = "recursive")
-
-sqrt(avgf$accuracy$individual$MSE.out.of.sample) # RMSE
-```
-
-MIDAS trial GDP und CCI
-```{r}
+MIDAS model cci (mod2)
+```{r} 
 cci_ts <- ts(cci$value, start=c(2006,1), end = c(2021,12), frequency = 12)
-y <- window(gdp_ts, end = c(2021, 2))
-x <- window(cci_ts, end = c(2021, 7))
+gdp <- window(gdp_ts, end = c(2021, 3))
+cci <- window(cci_ts, end = c(2021, 9))
 
-yg <- diff(log(y)) * 100
-xg <- diff(log(x)) * 100
+#Midas regression
+midas1 <- midas_r(gdp ~ mls(gdp, 1, 1),start = NULL)
 
-nx <- ts(c(NA, xg, NA, NA),start = start(x), frequency = 12)
-ny <- ts(c(NA,yg), start = start(x), frequency = 4)
+summary(midas1)
+coef(midas1)
 
-um <- midas_r(y ~ mls(y,1, 1) +mls(x, 0:1, 3), start = NULL)
-coef(um)
+acc_is_m1<-forecast::accuracy(gdp,midas1$fitted.values)
 
+#### forecasts:
+
+
+fcst_midas1 <- midasr::forecast(midas1, method = "static")
+fcst_midas1
+#acc_oos_m2 <- forecast::accuracy(fcst_midas2$mean,gdp)
+#plot(forecast1)
+
+#acc_modmid2 <- rbind(acc_is_m2,acc_oos_m2)
 
 ```
+
+MIDAS model cci (mod2)
+```{r} 
+cci_ts <- ts(cci$value, start=c(2006,1), end = c(2021,12), frequency = 12)
+gdp <- window(gdp_ts, end = c(2021, 3))
+cci <- window(cci_ts, end = c(2021, 9))
+
+#Midas regression
+midas2 <- midas_r(gdp ~ mls(cci, 0, 3),start = NULL)
+
+summary(midas2)
+coef(midas2)
+
+acc_is_m2<-forecast::accuracy(gdp,midas2$fitted.values)
+
+#### forecasts:
+fcst_cci <-window(cci_ts, start = c(2021,10),end = c(2021, 12))
+
+fcst_cci <-as.data.frame(window(cci_ts, start = c(2021,10),end = c(2021, 12))) 
+colnames(fcst_cci)  <- c("cci") 
+
+fcst_midas2 <- midasr::forecast(midas2,newdata = fcst_cci, method = "static")
+fcst_midas2
+#acc_oos_m2 <- forecast::accuracy(fcst_midas2$mean,gdp)
+#plot(forecast1)
+
+#acc_modmid2 <- rbind(acc_is_m2,acc_oos_m2)
+
+```
+
+
+```{r}
+
+## MORE CORRECT VERSION WITH 91.30....days but forecast not possible..
+google_ts <-ts(Google_AT_daily$value[1:5844], start=c(2006,1), frequency = 365.25)#31.12
+#gdp <- window(gdp_ts, end = c(2021, 3))
+google <- window(google_ts, end = c(2021, 274))
+google <- as.numeric(google)
+#google_ts[1:5752]
+
+y <- c(1:63)
+datey <- (y-1)*3+1
+
+test <-mlsd(google, 0, datey)
+
+midas3 <- midas_r(gdp ~ mls(gdp, 1, 1) + mlsd(google, 0, datey),start = NULL)
+
+
+summary(midas3)
+coef(midas3)
+
+acc_is_m3<-forecast::accuracy(gdp,midas3$fitted.values)
+
+#### forecasts:
+
+```
+```{r}
+#63*3 = 189 month
+#189month*30 = 5670 days (2021-07-10) (90n)
+
+#2021-09-11 bei 5733 (91)
+
+google_ts <-ts(Google_AT_daily$value[1:5844], start=c(2006,1), frequency = 365.25)#31.12
+#gdp <- window(gdp_ts, end = c(2021, 3))
+google <- window(google_ts, end = c(2021, 255))
+google <- as.numeric(google)
+#google_ts[1:5752]
+
+y <- c(1:63)
+datey <- (y-1)*3+1
+
+test <-mlsd(google, 0, datey)
+
+midas3 <- midas_r(gdp ~ mls(gdp, 1, 1) + mls(google, 0, 91),start = NULL)
+
+
+summary(midas3)
+coef(midas3)
+
+acc_is_m3<-forecast::accuracy(gdp,midas3$fitted.values)
+
+#### forecasts:
+
+
+#as.data.frame(Google_AT_daily$value[5753:5919])
+google_fcst <- as.data.frame(window(google_ts,start=c(2021, 256), end = c(2021, 347)))
+colnames(google_fcst)  <- c("google") 
+
+#1 quarter is 5752/62= 91.30159
+fcst_midas3 <- midasr::forecast(midas3,newdata =google_fcst , method = "dynamic")
+fcst_midas3
+```
+
+
+
+
+MIDAS model lag(gdp) + cci (mod4)
+
+```{r} 
+#cci_ts <- ts(cci$value, start=c(2006,1), end = c(2021,12), frequency = 12)
+#gdp <- window(gdp_ts, end = c(2021, 3))
+#cci <- window(cci_ts, end = c(2021, 9))
+
+#Midas regression
+midas4 <- midas_r(gdp ~ mls(gdp, 1, 1) + mls(cci, 0, 3), #same as lag(gdp)
+              start = NULL)
+
+summary(midas4)
+coef(midas4)
+
+acc_is_m4<-forecast::accuracy(gdp,midas4$fitted.values)
+
+#### forecasts:
+
+fcst_midas4 <- midasr::forecast(midas4,newdata = fcst_cci, method = "static")
+fcst_midas4
+
+```
+
+MIDAS model lag(gdp) + google (mod5)
+
+```{r} 
+#Midas regression
+midas5 <- midas_r(gdp ~ mls(gdp, 1, 1) + mls(google, 0, 91),start = NULL) #same as lag(gdp)
+
+
+summary(midas5)
+coef(midas5)
+
+acc_is_m5<-forecast::accuracy(gdp,midas5$fitted.values)
+
+#### forecasts:
+
+
+fcst_midas5 <- midasr::forecast(midas5,newdata = google_fcst, method = "static")
+fcst_midas5
+```
+
+
+MIDAS model lag(gdp) + google + cci (mod6)
+
+```{r} 
+
+#Midas regression
+midas6 <- midas_r(gdp ~ mls(gdp, 1, 1) + mls(cci, 0, 3) + mls(google, 0, 91), #same as lag(gdp)
+              start = NULL)
+
+summary(midas6)
+coef(midas6)
+
+acc_is_m6<-forecast::accuracy(gdp,midas6$fitted.values)
+
+#### forecasts:
+newdata <- list(cci_fcst,google_fcst)
+fcst_midas6 <- midasr::forecast(midas6,newdata = newdata, method = "static")
+fcst_midas6
+```
+
+
+MIDAS model cci+ google (mod7)
+
+```{r} 
+
+#Midas regression
+midas7 <- midas_r(gdp ~ mls(cci, 0, 3) + mls(google, 0, 91), #same as lag(gdp)
+              start = NULL)
+
+summary(midas7)
+coef(midas7)
+
+acc_is_m7<-forecast::accuracy(gdp,midas7$fitted.values)
+
+#### forecasts:
+
+fcst_midas7 <- midasr::forecast(midas7,newdata = newdata, method = "static")
+fcst_midas7$mean
+
+```
+### Summary Results MIDAS
+```{r}
+MIDAS <- rbind(acc_is_m2,acc_is_m3,acc_is_m4,acc_is_m5,acc_is_m6,acc_is_m7)
+
+rownames(MIDAS)  <- c("CCI", "DESI", "AR(1) & CCI","AR(1) & DESI", "AR(1) & CCI & DESI", "CCI & DESI") 
+
+                        
+print(xtable::xtable(MIDAS,caption="LOOCV results",label="LOOCVresults"),
+      sanitize.text.function=function(UR.table){UR.table},comment=FALSE)
+```
+
+
+
+
+
+
+
 
 
 
