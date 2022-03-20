@@ -1,27 +1,21 @@
 ---
-title: "Untitled"
+title: "Nowcasting GDP growth in Austria via the construction of a daily economic sentiment index using Google Trends"
+subtitle: "Masterthesis"
 author: "Anne Valder"
 date: "2/12/2022"
 output: html_document
 ---
-Goal which is best at forecasting GDP! (measured by out of sample accuracy)
-
-TO DO: 
-- schreiben extension models, results, robustness 
-- residual tests on all models (std.ols and arima left)
-- overview of results...! tables (OLS (nur robustness), Expanding, AR, VAR) FINALE ..!
-- Compare OeNB, WIfo index - Discussion
-- consumer index - robustness forecast mit other google indices?
-
-Question: 
-- is expanding window correct?
-- non pseeudo-forecast aus expanding?
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# libraries
+```{r}
+rm(list=ls())
+getwd()
+```
+
+# Load packages 
 
 ```{r, include=FALSE}
 library(readr)
@@ -37,20 +31,17 @@ library(Metrics)
 library(caret)
 library(collapse)
 library(urca)
-library(macror) # for latex table adf 
+library(tsbox)
+library(lubridate)
+library(dygraphs)
+#library(macror) # for latex table adf 
 library(xtable) # latex table 
 library(midasr) # Mixed data sampling models
 ```
 
-
+# Load all data (GDP, CCI, Goolge)
 ```{r}
-rm(list=ls())
-getwd()
-```
-# Load all data in (GDP, CCI, Goolge), extension unemployment (statAT), inflation(statAT), uncertainty index (paper Brown et al)
-
-#GDP
-```{r}
+# set uo Data Matrix
 t_0 <- as.Date("2006-01-01") #Setting start date for the series
 t_1 <- as.Date("2021-07-01") #Setting end date for the series
 t_2 <- as.Date("2021-12-31")
@@ -65,9 +56,9 @@ Data <- as.data.frame(Data)
 rownames(Data)  <- as.Date(Date_q)
 ```
 
-
+### GDP
 ```{r}
-# abgerufen final am 11.02.2022
+# accessed last 11.02.2022
 #Source: https://data.oecd.org/gdp/quarterly-gdp.htm#indicator-chart
 gdp <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[9:71,6:7]
 
@@ -79,9 +70,10 @@ gdp_ts <- ts(gdp$value, start=c(2006,1), end = c(2021,3), frequency = 4)
 Data[(Date_q%in%gdp$Date_q),1] <- gdp$value
 Data$gdp_ts <- ts(Data$gdp, start=c(2006,1), end = c(2021,3), frequency = 4)
 ```
-#CCI
+
+### CCI
 ```{r, include=FALSE}
-# abgerufen final am 11.02.2022
+# accessed last 11.02.2022
 #Source: https://ec.europa.eu/info/business-economy-euro/indicators-statistics/economic-databases/business-and-consumer-surveys/download-business-and-consumer-survey-data/time-series_en#consumers
 
 cci <- read.csv2("https://raw.githubusercontent.com/anneval/MA_data/main/RData/CCI.csv")[253:444,c(1,297)]
@@ -92,9 +84,6 @@ cci <- arrange(cci, Date_m)
 cci$Date_q <- as.yearqtr(cci$Date_m) 
 cci$Date_q <- as.Date(cci$Date_q)
 
-#cci$Date_q  <- as.character(cci$Date_m)
-#cci$Date_q[CCI_mntly$Date_q == "2021 Q4"] <- "2021 Q3"
-
 cci_qtrly <- cci %>% group_by(Date_q) %>%
   summarise_all(mean)
 
@@ -103,23 +92,20 @@ Data[(Date_q%in%cci_qtrly_63$Date_q),2] <- (cci_qtrly_63$value)
 Data$cci_ts <- ts(Data$cci, start=c(2006,1), end = c(2021,3), frequency = 4)
 ```
 
-# Google
+### Google
 ```{r}
-# abgerufen: daily update
+#series gets updated daily via Github workflow
 Google_AT_daily <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/raw/at/trendecon_sa.csv")
 
-# transform to quarterly and then do ts:
+# transform to quarterly
 Google_AT_daily$time <- as.Date(Google_AT_daily$time)
 Google_AT_daily <- arrange(Google_AT_daily, time)
 Google_AT_daily$Date_q <- as.yearqtr(Google_AT_daily$time)
 Google_AT_daily$Date_q <- as.Date(Google_AT_daily$Date_q)
-#Google_AT_daily$QDate  <- as.character(Google_AT_daily$QDate)
-#Google_AT_daily$QDate[Google_AT_daily$QDate == "2022 Q1"] <- "2021 Q3"  
-#Google_AT_daily$QDate[Google_AT_daily$QDate == "2021 Q4"] <- "2021 Q3"  
+
 Google_AT_qtrly <- Google_AT_daily %>% group_by(Date_q) %>%
   summarise_all(mean)
 
-#rownames(Google_AT_qtrly)  <- as.Date(Date_q)
 Google_AT_qtrly_63 <- Google_AT_qtrly[1:63,]
 Data[(Date_q%in%Google_AT_qtrly_63$Date_q),3] <- (Google_AT_qtrly_63$value)
 Data$google_ts <- ts(Data$google, start=c(2006,1), end = c(2021,3), frequency = 4)
@@ -129,10 +115,9 @@ Data$google_ts <- ts(Data$google, start=c(2006,1), end = c(2021,3), frequency = 
 ```{r}
 par(mfrow = c(3,1))
 
+Sys.setlocale("LC_TIME", "C") # forenglish names
+
 # GDP
-
-Sys.setlocale("LC_TIME", "C")
-
 ggplot(gdp, aes(x=Date_q, y=value,col = variable)) +
   geom_line(color = "steelblue") +
   theme_light() +
@@ -140,7 +125,6 @@ ggplot(gdp, aes(x=Date_q, y=value,col = variable)) +
   theme(plot.title = element_text(hjust = 0.5, face ="bold")) +
   scale_x_date(date_labels="%b %y",date_breaks  ="24 month")
   
-
 #CCI
 
 ggplot(cci, aes(x=Date_m, y=value)) +
@@ -160,7 +144,7 @@ ggplot(Google_AT_daily, aes(x=time, y=value)) +
   scale_x_date(date_labels="%b %y",date_breaks  ="24 month")
 ```
 
-# Later graph comparison
+# Comparison all data sources
 ```{r}
 ##### Abilene für comparison abbilden 
 ts.plot(ts(Data[,1],frequency = 4, start = c(2006,1)),
@@ -192,8 +176,8 @@ ggpairs(Data[,1:3])
 ```{r}
 adfgdp <- adf.test(Data$gdp) # stationary
 adfcci <- adf.test(Data$cci) # stationary
-adfgoogle <- adf.test(Data$google) # not stat # test agao  after remove inlation 
-# not stationary since I included inflation... 
+adfgoogle <- adf.test(Data$google) #stationary
+
 adfgdp
 adfcci
 adfgoogle
@@ -206,7 +190,7 @@ adf.test(diff(Data$google))
 #Kpss tests and phillip peron tests:
 ```{r}
 kpss.test(Data$gdp) # stationary
-kpss.test(Data$cci) #  stationary at 5%...0.09
+kpss.test(Data$cci) #  stationary at 5%
 kpss.test(Data$google) # stationary
 
 pp.test(Data$gdp) # stationary
@@ -214,7 +198,7 @@ pp.test(Data$cci) # not stationary (0.21)
 pp.test(Data$google) # stationary
 ```
 
-Summary:
+### Summary for Latex document
 ```{r,message=FALSE, warning=FALSE}
 x<-urTable(Data[,1:3], tests = c("adf", "pp", "kpss"), order = 1, file = NULL,
 format="latex")
@@ -234,24 +218,23 @@ pacf(Data$cci)
 pacf(Data$google)
 ```
 
-#### Expanding Window estimation
+# Expanding Window estimation
 
-# Expanding window estimation instead of fixed test and train data set (advantage: average over all)
-An expanding window works like this: Use the past 100 days worth of data to estimate a regression model.
-Use the regression model to predict the stock price 1 day from now. Use all of the observations including the predicted value for tomorrow (i.e. observations 1 through 101) to run a regression model. Use this to predict the stock price 2 days from now. Use all of the observations including the predicted values to run a regression model. Use this to predict the stock price 3 days from now.Repeat this until you have as many observations as you want to predict
-
+### Formula:
 ```{r}
+#Expanding window estimation instead of fixed test and train data set (advantage: average over all). An expanding window works like this: Use the past 100 days worth of data to estimate a regression model.Use the regression model to predict the stock price 1 day from now. Use all of the observations including the predicted value for tomorrow (i.e. observations 1 through 101) to run a regression model. Use this to predict the stock price 2 days from now. Use all of the observations including the predicted values to run a regression model. Use this to predict the stock price 3 days from now.Repeat this until you have as many observations as you want to predict
+
 expanding_window_OLS <- function(data, dep_var, start = 19){ 
   expanding_OLS <- list() # empty vector
   predicted_OLS <- list()
   resid_OLS <- list()
   error_OLS <- c() 
   i <- 0
-  for(t in start:nrow(data)){ # go from 19 bis 63
+  for(t in start:nrow(data)){ # from 19 bis 63
     i <- i+1 # first one is i=1 
     expanding_OLS[[i]] <- lm(formula = model, data = data[1:(t-1),]) # first train is 1:18
     resid_OLS[[i]] <- resid(expanding_OLS[[i]])
-    predicted_OLS[i] <- predict(expanding_OLS, newdata = data[t,]) # change here into newdatda for forecast...
+    predicted_OLS[i] <- predict(expanding_OLS, newdata = data[t,])
     error_OLS[i] <- as.numeric(predicted_OLS[[i]]- data[t,1]) # against original GDP growth 
     Summary_OLS <- list(expanding_OLS,predicted_OLS, resid_OLS,error_OLS)
   }
@@ -259,7 +242,7 @@ expanding_window_OLS <- function(data, dep_var, start = 19){
 }
 ```
 
-# Model 1 Expanding window
+### Model 1 Expanding window:
 
 ```{r, message=FALSE, warning=FALSE}
 dep_var <- "gdp"
@@ -295,7 +278,7 @@ RMSE_OLS_IS1
 checkresiduals(final_resid_OLS1)
 ```
 
-# Plot Model 1 against GDP growth
+#### Plot Model 1 against GDP growth
 ```{r}
 plotexp_1 <- ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,4),end = c(2021,3)),
           ts(pred1,frequency = 4, start = c(2010,4),end = c(2021,3)),
@@ -308,7 +291,7 @@ legend("bottomleft", c("GDP growth", "AR(1)"), col=c("black","red"), lty=c(1),
       )
 ```
 
-# Model 2 Expanding window
+### Model 2 Expanding window
 ```{r, message=FALSE, warning=FALSE}
 model = gdp ~ cci
 expanding_OLS2 <- expanding_window_OLS(Data, dep_var, start = 19)
@@ -339,10 +322,10 @@ RMSE_OLS_IS2
 
 # Autocorrelation residuals:
 checkresiduals(final_resid_OLS2)
-#plot(forecast(pred,h=3))
+
 ```
 
-# Plot Model 2 against GDP growth
+#### Plot Model 2 against GDP growth
 ```{r, message=FALSE, warning=FALSE}
 plotexp_2 <- ts.plot(ts(Data[19:63,1],frequency = 4, start = c(2010,3)),
           ts(pred2,frequency = 4, start = c(2010,3)),
@@ -355,7 +338,7 @@ legend("bottomleft", c("GDP growth", "CCI"), col=c("black","red"), lty=c(1),
       )
 ```
 
-# Model 3 Expanding window
+### Model 3 Expanding window
 ```{r, message=FALSE, warning=FALSE}
 model = gdp ~ google
 expanding_OLS3 <- expanding_window_OLS(Data, dep_var, start = 19)
@@ -391,7 +374,7 @@ checkresiduals(final_resid_OLS3)
 
 ```
 
-# Plot Model 3 against GDP growth
+#### Plot Model 3 against GDP growth
 ```{r}
 plotexp_3 <- ts.plot(ts(Data[19:63,1],frequency = 4, start = c(2010,3)),
           ts(pred3,frequency = 4, start = c(2010,3)),
@@ -404,7 +387,7 @@ legend("bottomleft", c("GDP growth", "DESI"), col=c("black","red"), lty=c(1),
       )
 ```
 
-# Model 4 Expanding window
+### Model 4 Expanding window
 ```{r, message=FALSE, warning=FALSE}
 model = gdp ~ gdp_lag + cci
   expanding_OLS4 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
@@ -435,7 +418,7 @@ RMSE_OLS_IS4
 # Autocorrelation residuals:
 checkresiduals(final_resid_OLS4)
 ```
-# Model 5 Expanding window
+### Model 5 Expanding window
 ```{r, message=FALSE, warning=FALSE}
 model = gdp ~ gdp_lag + google
 expanding_OLS5 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
@@ -467,7 +450,7 @@ RMSE_OLS_IS5
 checkresiduals(final_resid_OLS5)
 ```
 
-# Plot Model 4&5 against GDP growth
+#### Plot Model 4&5 against GDP growth
 ```{r}
 plotexp_5 <- ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,4)),
           ts(pred4,frequency = 4, start = c(2010,4)),
@@ -480,7 +463,7 @@ legend("bottomleft", c("GDP growth","CCI & AR(1)" ,"DESI & AR(1)"), col=c("black
        )
 ```
 
-# Model 6 Expanding window
+### Model 6 Expanding window
 ```{r, message=FALSE, warning=FALSE}
 model = gdp ~ gdp_lag + cci + google
 expanding_OLS6 <- expanding_window_OLS(Data[2:63,], dep_var, start = 19)
@@ -512,7 +495,7 @@ RMSE_OLS_IS6
 checkresiduals(final_resid_OLS6)
 ```
 
-# Model 7 Expanding window
+### Model 7 Expanding window
 ```{r, warning=F, message=FALSE}
 model = gdp ~ cci + google
 expanding_OLS7 <- expanding_window_OLS(Data, dep_var, start = 19)
@@ -543,7 +526,7 @@ RMSE_OLS_IS7
 checkresiduals(final_resid_OLS7)
 ```
 
-# Plot Model 6&7 against GDP growth
+#### Plot Model 6&7 against GDP growth
 ```{r}
 plotexp_7 <- ts.plot(ts(Data[20:63,1],frequency = 4, start = c(2010,3)),
           ts(pred6,frequency = 4, start = c(2010,3)),
@@ -556,7 +539,7 @@ legend("bottomleft", c("GDP growth","AR(1) & CCI & DESI", "CCI & DESI"), col=c("
        )
 ```
 
-Summary results expanding window: 
+#### Results expanding window for Latex document
 ```{r}
 comparison_MAE_OOS <- rbind("MAE_OLS_OOS" = MAE_OLS_OOS1,MAE_OLS_OOS2,MAE_OLS_OOS3,MAE_OLS_OOS4,MAE_OLS_OOS5,MAE_OLS_OOS6,MAE_OLS_OOS7)
 
@@ -574,75 +557,9 @@ stargazer::stargazer(comparison_OOS,summary=FALSE)
 print(xtable::xtable(comparison_OOS, label = "tab:acc", caption = "3-month ahead rolling in-sample forecast. Displayed here are several accuracy measures for the PES forecasting model."),  include.rownames = FALSE, type="html")
 ```
 
-# EXTENSIONS  
-
-## ARIMA MODEL
-
-###Auto Arima 
-```{r}
-fit <- auto.arima(Data[,"gdp"], trace = TRUE,  ic = c("aic")) #MA(1)
-arima <- Arima(Data$gdp, model=fit)
-
-stargazer::stargazer(arima) #
-summary(arima) # IS errors
-acc_is_MA1 <- forecast::accuracy(arima)
-
-adf.test(arima$residuals)
-stargazer::stargazer(acc_is_MA1,acc_oos_MA1) #arima !!!!! 
-
-forecast_MA1 <-predict(arima,n.ahead = 3)
-
-forecast_MA1_1 <-predict(arima)
-
-ts.plot(arima$fitted)
-
-ts.plot(Data$gdp, forecast_MA1$pred, lty = c(1,3), col=c(5,2))
-#forecast <- forecast(Data[,"gdp"], model = arima, h = 10)$fitted # We make a forecast three periods ahead and we extract the fitted values from the object forecast.#predict forecast same here h=...
-acc_oos_MA1 <-forecast::accuracy(Data$gdp,forecast_MA1$pred) 
-future = forecast(arima, h = 3) # same results as predict and nahead but only this way plotting works!
-plot(future)
-
-checkresiduals(arima)
-
-adf.test(arima$residuals)
-```
-
-Manually ARIMA  
-```{r}
-arma1 <- arima(Data$gdp, order = c(1,0,1))
-ar2ma1 <- arima(Data$gdp, order = c(2,0,1))
-ar1 <- arima(Data$gdp, order = c(1,0,0))
-ar2 <- arima(Data$gdp, order = c(2,0,0))
-ma1 <- arima(Data$gdp, order = c(0,0,1))
-
-AIC <- AIC(arma1, ar2ma1, ar1, ar2,ma1)
-BIC<- BIC(arma1, ar2ma1, ar1, ar2,ma1)
-ab<- cbind(AIC, BIC)
-
-stargazer::stargazer(ar1,ma1)
-```
-
-## Extension since ARMA(1,1) seems best 
-```{r}
-ARMA_11 <- Arima(Data$gdp, order = c(1,0,1))
-summary(ARMA_11)
-forecast::accuracy(ARMA_11)
-adf.test(ARMA_11$residuals)
-stargazer::stargazer(ARMA_11$var.coef)
-
-forecast_ARMA1 <-predict(ARMA_11,n.ahead = 3)
-forecast_ARMA1$pred
-
-acc_oos_ARMA1 <-forecast::accuracy(Data$gdp,forecast_ARMA1$pred) 
-future = forecast(ARMA_11, h = 3) # same results as predict and nahead but only this way plotting works!
-plot(future)
-checkresiduals(ARMA_11)
-```
-
-## VAR MODEL
-
+# VAR MODEL
 ### Manual VAR select
-####constant or not
+####constant:
 ```{r}
 var.AIC <- VAR(Data[,1:3],  type="none" , lag.max = 2, ic = c("AIC"))
 var.AIC.c <- VAR(Data[,1:3],  type="const" , lag.max = 2, ic = c("AIC")) ## lag 2
@@ -664,41 +581,27 @@ print(xtable::xtable(MChoice_table,caption="Model Choice Results",label="tab:mc"
 
 ```{r}
 fit_VAR1 <- VARselect(Data[,1:3],type = "const")   
-#Yselect <- VARselect(Data[,4:6],type = "none") #lag 2      # computes information criteria
-lag_VAR1 <- fit_VAR1$selection[1]  # AiC, Hq auch 2 , SC auch 
-lag_VAR1 
+lag_VAR1 <- fit_VAR1$selection[1]  
+#lag_VAR1 
 
 VAR1_est <- vars::VAR(y = Data[,1:3], p = lag_VAR1,type = "const")
 summary(VAR1_est$varresult$gdp)
-summary(VAR1_est)
 acc_is_VAR1 <- forecast::accuracy(VAR1_est$varresult$gdp) # IS accuracy
-
 stargazer::stargazer(acc_is_VAR1)
 
-
-
-#summary(VAR_est$varresult$gdp)$adj.r.squared
-#summary(VAR_est$varresult$cci)$adj.r.squared
-#summary(VAR_est$varresult$google)$adj.r.squared
 forecast_VAR1<- predict(VAR1_est,n.ahead =3)  
 forecast_VAR1
 
-
 df_fcst <- as.data.frame(forecast_VAR1$fcst$google)
 stargazer::stargazer(df_fcst,summary = FALSE)
-###### OOS accuracy?
+###### OOS accuracy
 acc_oos_VAR1 <-forecast::accuracy(Data$gdp,forecast_VAR1$fcst$gdp) 
 plot(forecast_VAR1)
 stargazer::stargazer(acc_oos_VAR1)
 
-acc_Var <- rbind(acc_oos_VAR1,acc_is_VAR1)
-
-
-#forecast::autoplot(forecast_VAR1)
-#forecast::autoplot(stats::predict(var6, n.ahead=horizon))
 ```
 
-# Residual analysis
+#### Residual analysis
 ```{r}
 resid_VAR1 <- data.frame(
   VAR1_est$varresult$gdp$residuals,
@@ -709,47 +612,51 @@ adf.test(VAR1_est$varresult$gdp$residuals) # stationary
 adf.test(VAR1_est$varresult$cci$residuals) #stationary
 adf.test(VAR1_est$varresult$google$residuals)#stationary
 
-Box.test(resid_VAR1$VAR1_est.varresult.gdp.residuals, type="Ljung-Box") # cannot rejet H0 The residuals are independently distributed.Ideally, we would like to fail to reject the null hypothesis. That is, we would like to see the p-value of the test be greater than 0.05 because this means the residuals for our time series model are independent, which is often an assumption we make when creating a mode
+Box.test(resid_VAR1$VAR1_est.varresult.gdp.residuals, type="Ljung-Box") # cannot reject H0
 
 ```
 
-# Normality test
+#### Normality test
 ```{r}
 Normtest_VAR1 <- normality.test(VAR1_est) # H0: normality
 print(Normtest_VAR1)
 plot(Normtest_VAR1)
 ```
 
-#Autocorrelation residuals # old 
+#### Autocorrelation residuals 
 ```{r}
+# Better tests than durbinWatsonTest, not used! 
 library(car)
-durbinWatsonTest(VAR1_est$varresult$gdp)  # Thereby, a small p-value of < 2.2e-16 indicates there is significant autocorrelation remaining in the residuals in the model below.
+durbinWatsonTest(VAR1_est$varresult$gdp)  # Small p-value of < 2.2e-16 indicates there is significant autocorrelation remaining in the residuals
 ```
 
-# serial correlation check
+#### serial correlation check
 ```{r}
 #Portmanteau
-#The null hypothesis of no autocorrelation 
 ser.test_VAR1_PT <- serial.test(VAR1_est,type="PT.adjusted") # H0: no serial correlation, here cannot reject H0 of no correlation
 ser.test_VAR1_PT  # here the null of no autocorrelation cannot be rejected, so no autocorrelation!
 plot(ser.test_VAR1_PT, names = "GDP")
-
 stargazer::stargazer(ser.test_VAR1_PT)
+
 #breusch_godfrey
-ser.test_VAR_BG <- serial.test(VAR1_est,type="BG") # H0 (null hypothesis): There is no autocorrelation at any order less than or equal to p.
+ser.test_VAR_BG <- serial.test(VAR1_est,type="BG") # H0: There is no autocorrelation at any order less than or equal to p.
 ser.test_VAR_BG # here the null of no autocorrelation cannot be rejected, so no autocorrelation!
 plot(ser.test_VAR_BG, names = "GDP")
 
-archtestVAR1 <- arch.test(VAR1_est) #cannot reject the h0 that the squared residuals are a sequence of white noise, namely, the residuals are homoscedastic. 
+#ARCH-LM test 
+archtestVAR1 <- arch.test(VAR1_est) #cannot reject the H0 that the squared residuals are a sequence of white noise, namely, the residuals are homoscedastic. 
 plot(archtestVAR1)
-checkresiduals(VAR1_est$varresult$gdp) # only unvariate... 
+checkresiduals(VAR1_est$varresult$gdp)
 ```
+#### Test for structural breaks
 ```{r}
+
 VAR_Est_CUSUM <- stability(VAR1_est, type = "OLS-CUSUM")
 VAR_Est_CUSUM
 plot(VAR_Est_CUSUM)
 ```
-### Summary Results Model diagnostics
+#### Summary Results Model diagnostics for Latex document
+
 ```{r}
 MDiagnostics_table <- cbind(ser.test_VAR1_PT$serial,ser.test_VAR_BG$serial,archtestVAR1$arch.mul,Normtest_VAR1$jb.mul$JB)[1:4,]
 
@@ -763,78 +670,22 @@ print(xtable::xtable(MDiagnostics_table,caption="Model diagnostics results",labe
       sanitize.text.function=function(UR.table){UR.table},comment=FALSE)
 ```
 
-
-### VAR with GDP AND PES - 2nd best expanding model 
-
-```{r}
-fit_VAR2 <- VARselect(Data[,c(1,3)],type = "const")   
-#Yselect <- VARselect(Data[,4:6],type = "none") #lag 2      # computes information criteria
-  lag_VAR2 <- fit_VAR2$selection[1]  # AiC, Hq auch 2 , SC auch 
-lag_VAR2
-VAR2_est
-VAR2_est <- VAR(y = Data[,c(1,3)], p = lag_VAR2,type = "const")
-summary(VAR2_est$varresult$gdp)
-acc_is_VAR2 <-forecast::accuracy(VAR2_est$varresult$gdp) # IS accuracy
-
-#summary(VAR_est$varresult$gdp)$adj.r.squared
-#summary(VAR_est$varresult$cci)$adj.r.squared
-#summary(VAR_est$varresult$google)$adj.r.squared
-forecast_VAR2 <- predict(VAR2_est,n.ahead =3)  
-forecast_VAR2
-###### OOS accuracy?
-acc_oos_VAR2 <-forecast::accuracy(Data$gdp,forecast_VAR2$fcst$gdp) 
-plot(forecast_VAR2)
-stargazer::stargazer(VAR2_est$varresult)
-```
-
-# Residual analysis
-```{r}
-resid_VAR2 <- data.frame(
-  VAR2_est$varresult$gdp$residuals,
-  VAR2_est$varresult$google$residuals)
-
-adf.test(VAR2_est$varresult$gdp$residuals) # not!!!! stationary#stationary stil have autocorrelation!!!
-adf.test(VAR2_est$varresult$google$residuals)#stationary
-```
-
-# Normality test
-```{r}
-Normtest_VAR2 <- normality.test(VAR2_est) # H0: normality
-print(Normtest_VAR2)
-plot(Normtest_VAR2)
-```
-
-```{r}
-library(car)
-durbinWatsonTest(VAR2_est$varresult$google)  # Thereby, a small p-value of < 2.2e-16 indicates there is significant autocorrelation remaining in the residuals in the model below.
-```
-# serial correlation check
-```{r}
-ser.test_VAR2 <- serial.test(VAR2_est) # H0: no serial correlation
-ser.test_VAR2
-```
-
-
 #### VAR(2, GDP,PES, CCI) expanding window 
 
 ```{r, warning=FALSE,message=FALSE}
-# create new dataset!!!.
+# create new dataset with lags first: 
 Data_Var <-flag(Data[1:3], 1:2)
-Data_Var <- cbind(Data[,1:3],Data_Var)## all have lag 2.... 
+Data_Var <- cbind(Data[,1:3],Data_Var)
 
 model= gdp ~ L1.gdp +L2.gdp + L1.cci +L2.cci +L1.google + L2.google
 
-  #change "!! dependt on var names form flag.. 
-
-expanding_VAR2 <- expanding_window_OLS(Data_Var[3:63,], dep_var, start = 13) # adjust start???
+expanding_VAR2 <- expanding_window_OLS(Data_Var[3:63,], dep_var, start = 19) 
 #predictions
-pred_VAR2 <- do.call(rbind.data.frame, expanding_VAR2[[2]]) # NAS wegen lag! 
+pred_VAR2 <- do.call(rbind.data.frame, expanding_VAR2[[2]])  
 colnames(pred_VAR2) <- c("value")
-#rownames(pred_VAR2) <- Date_q_pred[3:51]
 Date_q_pred <- Date_q[13:63]
 
 pred_VAR2 <- as.ts(pred_VAR2, start=c(2009,3), end = c(2021,3), frequency = 4)
-#ts.plot(pred_VAR2)
 
 ### error in and OOS 
 error_VAR2 <- expanding_VAR2[[4]]
@@ -854,7 +705,7 @@ RMSE_VAR2_IS    <- sqrt(mean(final_resid_VAR2^2))
 RMSE_VAR2_IS
 ```
 
-### Summary expanding VAR
+### Summary expanding VAR for Latex document
 
 ```{r}
 
@@ -867,14 +718,13 @@ stargazer::stargazer(comparison_errors,summary=FALSE)
 
 # ROBUSTNESS
 
-# Models Heik: Standard OLS (train and test set)
-AR(1)
-Model 1: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \epsilon_t  \qquad  t =1,\dotsc,T$
+## Standard OLS (train and test set)
+
+### Model 1: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \epsilon_t  \qquad  t =1,\dotsc,T$
 
 ```{r}
 mod1 <- lm(gdp ~ lag(gdp), data = Data_train)
 summary(mod1)
-#sqrt(mean(mod1$residuals^2)) # IS 
 acc_is1 <-forecast::accuracy(mod1)
 
 pred_mod1 <- predict(mod1, Data_test)
@@ -883,35 +733,24 @@ acc_oos1 <-forecast::accuracy(Data_test$gdp,pred_mod1)
 acc_oos1
 
 forecast_mod1 <- predict(mod1, n.ahead = 3)
-#plot(forecast_mod1)
 ```
-Model 2:  $GDP_t = \beta_0 +\beta_1 CCI_{t} +\epsilon_t \qquad  t =1,\dotsc,T$
+### Model 2:  $GDP_t = \beta_0 +\beta_1 CCI_{t} +\epsilon_t \qquad  t =1,\dotsc,T$
 ```{r}
 
-#Data_cci <- cci_qtrly[,c(1,3)]
-#colnames(Data_cci) <- c("time", "cci") kann forecasten mit dereinen observation mehr aber kann nicht evaluaten... no equivalent gdp value
 mod2 <- lm(gdp ~ cci, data = Data_train)
 summary(mod2)
 sqrt(mean(mod2$residuals^2)) # IS 
 acc_is2 <-forecast::accuracy(mod2)
 
-#pred_mod2
 pred_mod2 <- predict(mod2,Data_test)
-#ts.plot(pred_mod2)
-#fore <- predict(mod2,newdata = Data_cci) # predict cci ...
 
 acc_oos2 <-forecast::accuracy(Data_test$gdp,pred_mod2)
 acc_oos2
-#pred_test <- predict(mod2, cci_test)
-#mod2$coefficients
-
 ```
 
-Model 3:  $GDP_t = \beta_0 +\beta_1 GT_{t,i} +\epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
+### Model 3:  $GDP_t = \beta_0 +\beta_1 GT_{t,i} +\epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
 
 ```{r}
-# do new data set where google all periods
-#colnames(Google_AT_qtrly) <- c("Date_q","time","google")
 Data_google <- Google_AT_qtrly[,c(1,3)]
 colnames(Data_google) <- c("time", "google")
 
@@ -921,17 +760,13 @@ sqrt(mean(mod3$residuals^2)) # IS
 acc_is3 <- forecast::accuracy(mod3) # IS accuracy
 
 pred_mod3 <- predict(mod3, Data_test)
-#pred_mod3 <- predict(mod3, Google_AT_qtrly[45:65,])
 pred_mod3
 
 acc_oos3 <-forecast::accuracy(Data_test$gdp,pred_mod3)
 acc_oos3
 
-#fore <- predict(newdata = Data_google,mod3)
-#ts.plot(fore)
-##ts.plot(Google_AT_qtrly$value)
 ```
-Model 4: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \epsilon_t \qquad  t =1,\dotsc,T$
+### Model 4: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \epsilon_t \qquad  t =1,\dotsc,T$
 
 ```{r}
 mod4<- lm(gdp ~ lag(gdp) + cci, data = Data_train)
@@ -945,7 +780,7 @@ pred_mod4
 acc_oos4 <-forecast::accuracy(Data_test$gdp,pred_mod4)
 acc_oos4
 ```
-Model 5: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 GT_{t,i} + \epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
+### Model 5: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 GT_{t,i} + \epsilon_t \qquad  t =1$
 
 ```{r}
 mod5<- lm(gdp ~ lag(gdp) + google, data = Data_train)
@@ -957,14 +792,9 @@ pred_mod5 <- predict(mod5, Data_test)
 acc_oos5 <-forecast::accuracy(Data_test$gdp,pred_mod5)
 acc_oos5
 
-# test stimmt!
-#error <- Data_test$gdp - pred_mod5
-#error <-error[!is.na(error)]
-#RMSE <- sqrt(mean(error^2))
-#RMSE
 ```
 
-Model 6: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \beta_3 GT_{t,i} + \epsilon_t \qquad  t =1,\dotsc,T \qquad  n =1,\dotsc,N$
+### Model 6: $GDP_t = \beta_0 +\beta_1 GDP_{t-1} + \beta_2 CCI_{t} + \beta_3 GT_{t,i} + \epsilon_t \qquad  t =1,\dotsc,T$
 ```{r}
 mod6<- lm(gdp ~ lag(gdp) + cci + google, data = Data_train)
 summary(mod6)
@@ -976,8 +806,8 @@ pred_mod6 <- predict(mod6, Data_test)
 acc_oos6 <-forecast::accuracy(Data_test$gdp,pred_mod6)
 acc_oos6
 
-#predictnew <- predict(mod6,)
 ```
+### Model 7: $GDP_t = \beta_0 + \beta_1 CCI_{t} + \beta_2 GT_{t,i} + \epsilon_t \qquad  t =1,\dotsc,T$
 
 ```{r}
 mod7<- lm(gdp ~ cci + google, data = Data_train)
@@ -993,9 +823,7 @@ acc_oos7
 #predictnew <- predict(mod6,)
 ```
 
-
-
-#Summary results 
+### Summary results for Latex document
 
 ```{r}
 stargazer::stargazer(mod1,mod2,mod3,mod4,mod5,mod6, mod7)
@@ -1008,56 +836,11 @@ stargazer::stargazer(comparison_OLS_OOS, summary = FALSE,colnames = TRUE)
 
 ```
 
-
-# Robustness VAR models
-
-
-#### VAR(2, GDP,PES) expanding window 
-
-```{r, warning=FALSE,message=FALSE}
-# create new dataset!!!.
-Data_Var <-flag(Data[c(1,3)], 1:2)
-Data_Var <- cbind(Data[,c(1,3)],Data_Var)## all have lag 2.... 
-
-model= gdp ~ L1.gdp +L2.gdp +L1.google + L2.google
-
-  #change "!! dependt on var names form flag.. 
-
-expanding_VAR2 <- expanding_window_OLS(Data_Var[3:63,], dep_var, start = 13) # adjust start???
-#predictions
-pred_VAR2 <- do.call(rbind.data.frame, expanding_VAR2[[2]]) # NAS wegen lag! 
-colnames(pred_VAR2) <- c("value")
-rownames(pred_VAR2) <- Date_q_pred[3:51]
-Date_q_pred <- Date_q[13:63]
-
-pred_VAR2 <- as.ts(pred_VAR2, start=c(2010,4), end = c(2021,3), frequency = 4)
-#ts.plot(pred_VAR2)
-
-### error in and OOS 
-error_VAR2 <- expanding_VAR2[[4]]
-error_VAR2 <-error_VAR2[!is.na(error_VAR2)]
-MAE_VAR2_OOS <- mean(abs(error_VAR2))
-MAE_VAR2_OOS
-RMSE_VAR2_OOS  <- sqrt(mean(error_VAR2^2)) 
-RMSE_VAR2_OOS
-MSE_VAR2 <- mean(error_VAR2^2) 
-MSE_VAR2
-# IS error terms----------------------------------------------------------------
-# IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
-resid_VAR2 <- expanding_VAR2[[3]]
-final_resid_VAR2 <- resid_VAR2[[length(resid_VAR2)]]
-
-RMSE_VAR2_IS    <- sqrt(mean(final_resid_VAR2^2))
-RMSE_VAR2_IS
-
-```
-
 ## Robustness Cross Validation instead of expanding window 
 
 ```{r}
 ctrl <- trainControl(method = "LOOCV")
 
-# lag problem again... easiest prob do to new data frame and add it as a variables
 model1_CV <- train(gdp ~ gdp_lag, data = Data[2:63,], method = "lm", trControl = ctrl)
 print(model1_CV)
 stargazer::stargazer(model1_CV)
@@ -1084,24 +867,361 @@ results <- rbind("LOOCV" = model7_CV$results,model6_CV$results,model5_CV$results
 
 ```
 
-### Summary Results Model diagnostics
+### Summary Results LOOCV model for Latex document
 ```{r}
 LOOCV_table <- rbind(model7_CV$results,model6_CV$results,model5_CV$results,model4_CV$results,model3_CV$results,model2_CV$results,model1_CV$results) 
-                        )  
+                        
 print(xtable::xtable(LOOCV_table,caption="LOOCV results",label="LOOCVresults"),
       sanitize.text.function=function(UR.table){UR.table},comment=FALSE)
 ```
 
-## Further possible Extensions
-```{r}
-# different data aggregation?
-# maybe policy uncertainty index
-# unemployment and inflation VAR
+## Robustness MIDAS
+### MIDAS Model 1
+```{r} 
+gdp <- window(gdp_ts, end = c(2021, 3))
+#Midas regression
+midas1 <- midas_r(gdp ~ mls(gdp, 1, 1),start = NULL)
+
+summary(midas1)
+coef(midas1)
+acc_is_m1<-forecast::accuracy(gdp,midas1$fitted.values)
+
 ```
 
-### OLD 
+### MIDAS Model 2 
+```{r} 
+cci_ts <- ts(cci$value, start=c(2006,1), end = c(2021,12), frequency = 12)
+cci <- window(cci_ts, end = c(2021, 9))
 
-### VAR(2) manually test and train
+#Midas regression
+midas2 <- midas_r(gdp ~ mls(cci, 0, 3),start = NULL)
+
+summary(midas2)
+coef(midas2)
+
+acc_is_m2<-forecast::accuracy(gdp,midas2$fitted.values)
+
+#### forecasts:
+fcst_cci <-window(cci_ts, start = c(2021,10),end = c(2021, 12))
+
+fcst_cci <-as.data.frame(window(cci_ts, start = c(2021,10),end = c(2021, 12))) 
+colnames(fcst_cci)  <- c("cci") 
+
+fcst_midas2 <- midasr::forecast(midas2,newdata = fcst_cci, method = "static")
+fcst_midas2
+```
+
+### MIDAS Model 3
+```{r}
+google_ts <-ts(Google_AT_daily$value[1:5844], start=c(2006,1), frequency = 365.25)
+google <- window(google_ts, end = c(2021, 255))
+google <- as.numeric(google)
+
+y <- c(1:length(google))
+datey <- (y-1)*3+1
+
+test <-mlsd(google, 0, datey)
+
+midas3 <- midas_r(gdp ~ mls(gdp, 1, 1) + mls(google, 0, 91),start = NULL)
+
+
+summary(midas3)
+coef(midas3)
+
+acc_is_m3<-forecast::accuracy(gdp,midas3$fitted.values)
+
+#### forecasts:
+
+google_fcst <- as.data.frame(window(google_ts,start=c(2021, 256), end = c(2021, 347)))
+colnames(google_fcst)  <- c("google") 
+#1 quarter is 5752/62= 91.30159
+fcst_midas3 <- midasr::forecast(midas3,newdata =google_fcst , method = "dynamic")
+fcst_midas3
+```
+
+### MIDAS Model 4
+
+```{r} 
+#Midas regression
+midas4 <- midas_r(gdp ~ mls(gdp, 1, 1) + mls(cci, 0, 3), 
+              start = NULL)
+
+summary(midas4)
+coef(midas4)
+
+acc_is_m4<-forecast::accuracy(gdp,midas4$fitted.values)
+
+#### forecasts:
+
+fcst_midas4 <- midasr::forecast(midas4,newdata = fcst_cci, method = "static")
+fcst_midas4
+```
+
+### MIDAS Model 5
+
+```{r} 
+#Midas regression
+midas5 <- midas_r(gdp ~ mls(gdp, 1, 1) + mls(google, 0, 91),start = NULL) 
+summary(midas5)
+coef(midas5)
+
+acc_is_m5<-forecast::accuracy(gdp,midas5$fitted.values)
+
+#### forecasts:
+fcst_midas5 <- midasr::forecast(midas5,newdata = google_fcst, method = "static")
+fcst_midas5
+```
+
+### MIDAS Model 6
+
+```{r} 
+#Midas regression
+midas6 <- midas_r(gdp ~ mls(gdp, 1, 1) + mls(cci, 0, 3) + mls(google, 0, 91), 
+              start = NULL)
+
+summary(midas6)
+coef(midas6)
+
+acc_is_m6<-forecast::accuracy(gdp,midas6$fitted.values)
+
+#### forecasts:
+newdata <- list(fcst_cci,google_fcst)
+fcst_midas6 <- midasr::forecast(midas6,newdata = newdata, method = "static")
+fcst_midas6
+```
+
+### MIDAS Model 7
+
+```{r} 
+#Midas regression
+midas7 <- midas_r(gdp ~ mls(cci, 0, 3) + mls(google, 0, 91), 
+              start = NULL)
+
+summary(midas7)
+coef(midas7)
+
+acc_is_m7<-forecast::accuracy(gdp,midas7$fitted.values)
+
+#### forecasts:
+
+fcst_midas7 <- midasr::forecast(midas7,newdata = newdata, method = "static")
+fcst_midas7$mean
+
+```
+
+### Summary Results MIDAS
+
+```{r}
+MIDAS <- rbind(acc_is_m2,acc_is_m3,acc_is_m4,acc_is_m5,acc_is_m6,acc_is_m7)
+
+rownames(MIDAS)  <- c("CCI", "DESI", "AR(1) & CCI","AR(1) & DESI", "AR(1) & CCI & DESI", "CCI & DESI") 
+
+                        
+print(xtable::xtable(MIDAS,caption="LOOCV results",label="LOOCVresults"),
+      sanitize.text.function=function(UR.table){UR.table},comment=FALSE)
+```
+
+# Weekly indicators OeNB, WIFO and OECD
+### Load data & prepare 
+```{r}
+google <- Google_AT_daily[,1:2]
+library(tsbox)
+google_w <- ts_frequency(google, to = "week") %>% ts_xts() ### Change from daily to weekly frequency
+
+#### OECD weekly tracker
+temp <- tempfile()
+download.file("https://github.com/NicolasWoloszko/OECD-Weekly-Tracker/raw/main/Data/weekly_tracker.xlsx",
+              destfile = temp)
+
+oecd <- read_xlsx(temp, sheet = "Sheet1") %>%
+  filter(region == "Austria") %>%
+  mutate(date = as.Date(date),
+         Tracker = `Tracker (yoy)` / 100) %>%
+  filter(date >= "2020-01-01") %>%
+  rename(time = date, value = Tracker) %>%
+  dplyr::select(time, value) %>%
+  ts_xts()
+
+### OENB Weekly Tracker
+
+temp <- tempfile()
+download.file("https://www.oenb.at/dam/jcr:7c5ab44b-204d-4d45-a802-884d1019f7f5/data_on_the_weekly_GDP-indicator.csv",
+              destfile = temp)
+
+#### first weeks missing
+wecon_oenb <- read_delim(temp, delim = ";", escape_double = FALSE, trim_ws = TRUE) %>%
+  drop_na(Calenderweek) %>%
+  rename(time = Calenderweek, value = `Real GDP compared to pre-crisis levels`) %>%
+  dplyr::select(time, value)
+
+wecon_oenb <- ts(wecon_oenb, start = c(2020,10), frequency = 52) %>% ts_xts()
+wecon_oenb_test <- ts(wecon_oenb, 
+   freq=365.25/7, 
+   start=decimal_date(ymd("2020-03-06"))) %>% ts_xts()
+
+wecon_oenb_test <- wecon_oenb_test %>% xts:::.drop.time()
+
+### WIFO Weekly Tracker 
+temp <- tempfile()
+download.file("https://www.wifo.ac.at/wwadocs/konjunktur/W%C3%B6chentlicherWIFOWirtschaftsindex/WIFO-Konjunkturberichterstattung_W%C3%B6chentlicherWIFOWirtschaftsindex.xlsx",
+              destfile = temp)
+
+t0 <- as.numeric(as.Date("2007-01-01"))
+t1 <- as.numeric(as.Date(Sys.Date()))
+t <- round((t1 - t0) / 7) - 3 
+
+wwwi <- read_xlsx(temp, sheet = "WWWI",
+                  skip = 2, col_names = c("DATE", "VALUE", "cng_yearavg", "cng_quarter"),
+                  n_max = t) %>%
+  mutate(DATE = as.character(DATE)) %>%
+  dplyr::select(DATE, VALUE) %>%
+  rename(time = DATE, value = VALUE) %>%
+  ts_xts()
+```
+
+### Adjust data & Plot
+```{r}
+google_w <- google_w[time(google_w) >= "2020-01-01"]  
+wwwi <- wwwi[time(wwwi) >= "2020-01-01"]  
+oecd <- oecd[time(oecd) >= "2020-01-01"]  
+
+wecon_oenb <- wecon_oenb %>% xts:::.drop.time()
+
+wwwi <- wwwi %>% ts_data.frame()
+wwwi$time <- wwwi$time %m-% days(3)
+wwwi <- wwwi %>% ts_xts()
+
+oecd <- oecd %>% ts_data.frame()
+oecd$time <- oecd$time %m-% days(2)
+oecd <- oecd %>% ts_xts()
+
+google_w <- google_w %>% ts_data.frame()
+google_w$time <- google_w$time %m-% days(2)
+google_w <- google_w %>% ts_xts()
+
+wecon_oenb_test <- wecon_oenb_test %>% ts_data.frame()
+wecon_oenb_test[1,1] <- as.Date("2020-03-06")
+wecon_oenb_test <- wecon_oenb_test %>% ts_xts()
+
+### Plot
+ts_dygraphs(ts_c(
+  `Google DESI` = google_w * 5,
+  `WIFO WWWI` = wwwi,
+  `OECD Weekly Tracker` = oecd * 100,
+  `OENB Weekly Indicator` = wecon_oenb_test
+))  %>%
+  dySeries("Google DESI", strokeWidth=2, color = "black") %>%
+  dySeries("WIFO WWWI", strokeWidth = 2,  color = "red") %>%
+  dySeries("OECD Weekly Tracker", strokeWidth = 2,  color = "green") %>%
+  dySeries("OENB Weekly Indicator", strokeWidth = 2,  color = "steelblue") %>%
+  dyAxis("x", drawGrid = FALSE) %>%
+  dyRangeSelector(dateWindow = c(as.Date("2020-01-01"), Sys.Date()))%>%
+  dyOptions(useDataTimezone = TRUE)
+
+```
+#### Plot for Latx document
+```{r}
+month <- seq(as.Date("2020-01-01"), 
+             as.Date("2022-03-01"), 
+             by = "1 month")
+
+month_numeric <- as.numeric(format(month, format = "%U"))
+month_label <- format(month, format = "%b")
+scale_x_continuous(breaks = month_numeric, 
+                   labels = month_label)
+
+
+ts.plot(ts(oecd*100,frequency = 52, start = c(2020,1)),
+        ts(wwwi,frequency = 52, start = c(2020,1)),
+        ts(google_w*5,frequency = 52, start = c(2020,1)),
+        ts(wecon_oenb_test,frequency = 52, start = c(2020,10)),
+        col = c("darkgreen", "red","black","steelblue"),
+        xlab = "Time",
+        main = "",
+        lwd = 1
+        )
+legend("bottomright", c("OECD Weekly Tracker","WIFO WWWI", "Google DESI", "OENB Weekly Indicator"), col=c("darkgreen", "red","black","steelblue"), lty=c(1), xpd=TRUE, bty="b",cex=0.75
+       )
+```
+
+
+# OLD!
+
+### VAR with GDP AND PES - 2nd best expanding model 
+
+```{r}
+fit_VAR2 <- VARselect(Data[,c(1,3)],type = "const")   
+lag_VAR2 <- fit_VAR2$selection[1]  
+VAR2_est <- VAR(y = Data[,c(1,3)], p = lag_VAR2,type = "const")
+summary(VAR2_est$varresult$gdp)
+acc_is_VAR2 <-forecast::accuracy(VAR2_est$varresult$gdp) # IS accuracy
+
+forecast_VAR2 <- predict(VAR2_est,n.ahead =3)  
+forecast_VAR2
+###### OOS accuracy?
+acc_oos_VAR2 <-forecast::accuracy(Data$gdp,forecast_VAR2$fcst$gdp) 
+plot(forecast_VAR2)
+stargazer::stargazer(VAR2_est$varresult)
+```
+
+#### Residual analysis
+```{r}
+resid_VAR2 <- data.frame(
+  VAR2_est$varresult$gdp$residuals,
+  VAR2_est$varresult$google$residuals)
+
+adf.test(VAR2_est$varresult$gdp$residuals)
+adf.test(VAR2_est$varresult$google$residuals)
+```
+
+#### Normality test
+```{r}
+Normtest_VAR2 <- normality.test(VAR2_est) # H0: normality
+print(Normtest_VAR2)
+plot(Normtest_VAR2)
+```
+#### Serial correlation check
+```{r}
+ser.test_VAR2 <- serial.test(VAR2_est) # H0: no serial correlation
+ser.test_VAR2
+```
+
+### VAR(2,GDP,PES) expanding window 
+
+```{r, warning=FALSE,message=FALSE}
+# create new datase
+Data_Var <-flag(Data[c(1,3)], 1:2)
+Data_Var <- cbind(Data[,c(1,3)],Data_Var)
+
+model= gdp ~ L1.gdp +L2.gdp +L1.google + L2.google
+expanding_VAR2 <- expanding_window_OLS(Data_Var[3:63,], dep_var, start = 19) 
+#predictions
+pred_VAR2 <- do.call(rbind.data.frame, expanding_VAR2[[2]])  
+colnames(pred_VAR2) <- c("value")
+rownames(pred_VAR2) <- Date_q_pred[3:51]
+Date_q_pred <- Date_q[13:63]
+
+pred_VAR2 <- as.ts(pred_VAR2, start=c(2010,4), end = c(2021,3), frequency = 4)
+### error in and OOS 
+error_VAR2 <- expanding_VAR2[[4]]
+error_VAR2 <-error_VAR2[!is.na(error_VAR2)]
+MAE_VAR2_OOS <- mean(abs(error_VAR2))
+MAE_VAR2_OOS
+RMSE_VAR2_OOS  <- sqrt(mean(error_VAR2^2)) 
+RMSE_VAR2_OOS
+MSE_VAR2 <- mean(error_VAR2^2) 
+MSE_VAR2
+# IS error terms----------------------------------------------------------------
+# IS: If you are forecasting for an observation that was part of the data sample - it is in-sample forecast.
+resid_VAR2 <- expanding_VAR2[[3]]
+final_resid_VAR2 <- resid_VAR2[[length(resid_VAR2)]]
+
+RMSE_VAR2_IS    <- sqrt(mean(final_resid_VAR2^2))
+RMSE_VAR2_IS
+
+```
+
+#### VAR(2) manually test and train
 
 ```{r}
 trainingdata <- ts(Data_train[,1:3], frequency = 4, start = c(2006, 1),end = c(2010,3))
@@ -1113,20 +1233,12 @@ p <- predict(v, n.ahead=3)
 
 p$fcst$gdp
 
-ts.plot(p$fcst$gdp)
-#res <- residuals(v$varresult$gdp)
-#fits <- fitted(v)
-#RMSE <- sqrt(mean(res^2))
-
-acc_is_VAR <-forecast::accuracy(trainingdata,v$varresult$gdp$fitted.values) # works!!! validated against 
-###aber nicht test dat verwendet???predicted
-acc_oos_VAR <-forecast::accuracy(testdata,p$fcst$gdp) # works!!! validated against test dat
-#acc_oos_VAR <-forecast::accuracy(testdata,p$fcst$cci)
-#acc_oos_VAR <-forecast::accuracy(testdata,p$fcst$google)
-
+acc_is_VAR <-forecast::accuracy(trainingdata,v$varresult$gdp$fitted.values) 
+acc_oos_VAR <-forecast::accuracy(testdata,p$fcst$gdp) 
 ```
 
-### OLD version expanding window
+#### OLD version expanding window
+
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 expanding_window_OLS <- function(data, dep_var, start = 19){ # change to 12 
   expanding_OLS <- list() # empty vector
@@ -1144,35 +1256,68 @@ expanding_window_OLS <- function(data, dep_var, start = 19){ # change to 12
   }
   return(Summary_OLS)
 }
-
-# forecast pred on newly data how do i incporpare that??? 
-
-#x <- predict(expanding_OLS[[1]][[51]],Google_AT_qtrly[64:65,]) # used last estimated model ... 
-
-#error_x  <- as.numeric(x - Google_AT_qtrly$google[64:65]) 
-#MAE_OLS_OOS <- mean(abs(error_x))
-#MAE_OLS_OOS
-##RMSE_OLS_OOS    <- sqrt(mean(error_x^2)) 
-#RMSE_OLS_OOS
-#MSE_OLS <- mean(error_x^2) 
-#MSE_OLS
-
-##### apply model to test set
-
-#accuracy(cafe.test$fitted)
-#y_pred <- forecast(Data_test[,"gdp"], model = arima, h=3)$fitted # We call the forecast function passing the testing data through the ARIMA model fitted with the training data and we extract the fitted values.
-#y_test <- Data_test[,"gdp"]
-#sd_test <- sd(y_test)
-#RMSE <- rmse(y_test, y_pred)
-#MAE <- mae(y_test, y_pred)
-#rss <- sum((y_test - y_pred) ** 2)
-#tss <- sum((y_test - mean(y_test)) ** 2)
-##R_squared <- 1 - rss/tss
-#errors <- as.ts(y_test - y_pred)
-#adf.test(errors)
 ```
 
-#ARIMA(2,0,0) expanding estimation - egal weil AR(2) basiert auf Datatrain... 
+## ARIMA MODEL
+
+### Auto Arima 
+```{r}
+fit <- auto.arima(Data[,"gdp"], trace = TRUE,  ic = c("aic")) #MA(1)
+arima <- Arima(Data$gdp, model=fit)
+
+stargazer::stargazer(arima)
+summary(arima) # IS errors
+acc_is_MA1 <- forecast::accuracy(arima)
+
+adf.test(arima$residuals)
+forecast_MA1 <-predict(arima,n.ahead = 3)
+forecast_MA1_1 <-predict(arima)
+
+ts.plot(arima$fitted)
+
+acc_oos_MA1 <-forecast::accuracy(Data$gdp,forecast_MA1$pred) 
+future = forecast(arima, h = 3)
+plot(future)
+
+checkresiduals(arima)
+adf.test(arima$residuals)
+```
+
+#### Manually ARIMA  
+```{r}
+arma1 <- arima(Data$gdp, order = c(1,0,1))
+ar2ma1 <- arima(Data$gdp, order = c(2,0,1))
+ar1 <- arima(Data$gdp, order = c(1,0,0))
+ar2 <- arima(Data$gdp, order = c(2,0,0))
+ma1 <- arima(Data$gdp, order = c(0,0,1))
+
+AIC <- AIC(arma1, ar2ma1, ar1, ar2,ma1)
+BIC<- BIC(arma1, ar2ma1, ar1, ar2,ma1)
+ab<- cbind(AIC, BIC)
+
+stargazer::stargazer(ar1,ma1)
+```
+
+#### Extension since ARMA(1,1) seems best
+
+```{r}
+ARMA_11 <- Arima(Data$gdp, order = c(1,0,1))
+summary(ARMA_11)
+forecast::accuracy(ARMA_11)
+adf.test(ARMA_11$residuals)
+stargazer::stargazer(ARMA_11$var.coef)
+
+forecast_ARMA1 <-predict(ARMA_11,n.ahead = 3)
+forecast_ARMA1$pred
+
+acc_oos_ARMA1 <-forecast::accuracy(Data$gdp,forecast_ARMA1$pred) 
+future = forecast(ARMA_11, h = 3) # same results as predict and nahead but only this way plotting works!
+plot(future)
+checkresiduals(ARMA_11)
+```
+
+#### ARIMA(2,0,0) expanding estimation 
+
 ```{r}
 Data$gdp_lag2 <- lag(Data$gdp_lag)
 
@@ -1182,7 +1327,7 @@ model = gdp ~ gdp_lag + gdp_lag2
 expanding_AR2 <- expanding_window_OLS(Data[3:63,], dep_var, start = 13)
 
 #predictions
-pred_AR2 <- do.call(rbind.data.frame, expanding_AR2[[2]]) # NAS wegen lag! 
+pred_AR2 <- do.call(rbind.data.frame, expanding_AR2[[2]]) 
 colnames(pred_AR2) <- c("value")
 rownames(pred_AR2) <- Date_q_pred[3:51]
 Date_q_pred <- Date_q[13:63]
@@ -1207,362 +1352,22 @@ final_resid_AR2 <- resid_AR2[[length(resid_AR2)]]
 RMSE_AR2_IS    <- sqrt(mean(final_resid_AR2^2))
 RMSE_AR2_IS
 ```
-#### Weekly indicators OeNB and WIFO
 
+### MIDAS Model 3 OLD  
 ```{r}
-### Change from daily to weekly frequency
-google <- Google_AT_daily[,1:2]
-library(tsbox)
-google_w <- ts_frequency(google, to = "week") %>% ts_xts()
-
-#### OECD weekly tracker
-temp <- tempfile()
-download.file("https://github.com/NicolasWoloszko/OECD-Weekly-Tracker/raw/main/Data/weekly_tracker.xlsx",
-              destfile = temp)
-
-oecd <- read_xlsx(temp, sheet = "Sheet1") %>%
-  #oecd <- read_xlsx("./real_data/weekly_tracker.xlsx", sheet = "Sheet1") %>%
-  filter(region == "Austria") %>%
-  #filter(region %in% c("Austria", "Germany", "Switzerland")) %>%
-  mutate(date = as.Date(date),
-         Tracker = `Tracker (yoy)` / 100) %>%
-  filter(date >= "2020-01-01") %>%
-  rename(time = date, value = Tracker) %>%
-  dplyr::select(time, value) %>%
-  ts_xts()
-
-### OENB Weekly Tracker
-
-temp <- tempfile()
-download.file("https://www.oenb.at/dam/jcr:7c5ab44b-204d-4d45-a802-884d1019f7f5/data_on_the_weekly_GDP-indicator.csv",
-              destfile = temp)
-
-#### first weeks fehlt
-wecon_oenb <- read_delim(temp, delim = ";", escape_double = FALSE, trim_ws = TRUE) %>%
-  drop_na(Calenderweek) %>%
-  rename(time = Calenderweek, value = `Real GDP compared to pre-crisis levels`) %>%
-  dplyr::select(time, value)
-
-wecon_oenb <- ts(wecon_oenb, start = c(2020,10), frequency = 52) %>% ts_xts()
-
-
-library(lubridate)
-wecon_oenb_test <- ts(wecon_oenb, 
-   freq=365.25/7, 
-   start=decimal_date(ymd("2020-03-06"))) %>% ts_xts()
-
-wecon_oenb_test <- wecon_oenb_test %>% xts:::.drop.time()
-
-### WIFO Weekly Tracker 
-temp <- tempfile()
-download.file("https://www.wifo.ac.at/wwadocs/konjunktur/W%C3%B6chentlicherWIFOWirtschaftsindex/WIFO-Konjunkturberichterstattung_W%C3%B6chentlicherWIFOWirtschaftsindex.xlsx",
-              destfile = temp)
-
-t0 <- as.numeric(as.Date("2007-01-01"))
-t1 <- as.numeric(as.Date(Sys.Date()))
-t <- round((t1 - t0) / 7) - 3 # weeks passed since index started
-
-wwwi <- read_xlsx(temp, sheet = "WWWI",
-                  #wwwi <- read_xlsx(path = "./real_data/wwwi_wifo.xlsx", sheet = "WWWI",
-                  skip = 2, col_names = c("DATE", "VALUE", "cng_yavg", "cng_q"),
-                  #col_types = c("date", "guess", "guess", "guess"), 
-                  n_max = t) %>%
-  mutate(DATE = as.character(DATE)) %>%
-  dplyr::select(DATE, VALUE) %>%
-  rename(time = DATE, value = VALUE) %>%
-  ts_xts()
-```
-
-
-```{r}
-### weekly 2020
-google_w <- google_w[time(google_w) >= "2020-01-01"]  
-wwwi <- wwwi[time(wwwi) >= "2020-01-01"]  
-oecd <- oecd[time(oecd) >= "2020-01-01"]  
-
-wecon_oenb <- wecon_oenb %>% xts:::.drop.time()
-library(lubridate)
-wwwi <- wwwi %>% ts_data.frame()
-wwwi$time <- wwwi$time %m-% days(3)
-wwwi <- wwwi %>% ts_xts()
-
-oecd <- oecd %>% ts_data.frame()
-oecd$time <- oecd$time %m-% days(2)
-oecd <- oecd %>% ts_xts()
-
-google_w <- google_w %>% ts_data.frame()
-google_w$time <- google_w$time %m-% days(2)
-google_w <- google_w %>% ts_xts()
-
-wecon_oenb_test <- wecon_oenb_test %>% ts_data.frame()
-wecon_oenb_test[1,1] <- as.Date("2020-03-06")
-wecon_oenb_test <- wecon_oenb_test %>% ts_xts()
-
-### Plot
-library(dygraphs)
-ts_dygraphs(ts_c(
-  `Google DESI` = google_w * 5,
-  `WIFO WWWI` = wwwi,
-  `OECD Weekly Tracker` = oecd * 100,
-  `OENB Weekly Indicator` = wecon_oenb_test
-))  %>%
-  dySeries("Google DESI", strokeWidth=2, color = "black") %>%
-  dySeries("WIFO WWWI", strokeWidth = 2,  color = "red") %>%
-  dySeries("OECD Weekly Tracker", strokeWidth = 2,  color = "green") %>%
-  dySeries("OENB Weekly Indicator", strokeWidth = 2,  color = "steelblue") %>%
-  dyAxis("x", drawGrid = FALSE) %>%
-  dyRangeSelector(dateWindow = c(as.Date("2020-01-01"), Sys.Date()))%>%
-  dyOptions(useDataTimezone = TRUE)
-
-```
-
-```{r}
-month <- seq(as.Date("2020-01-01"), 
-             as.Date("2022-03-01"), 
-             by = "1 month")
-
-month_numeric <- as.numeric(format(month, format = "%U"))
-month_label <- format(month, format = "%b")
-scale_x_continuous(breaks = month_numeric, 
-                   labels = month_label)
-
-
-ts.plot(ts(oecd*100,frequency = 52, start = c(2020,1)),
-        ts(wwwi,frequency = 52, start = c(2020,1)),
-        ts(google_w*5,frequency = 52, start = c(2020,1)),
-        ts(wecon_oenb_test,frequency = 52, start = c(2020,10)),
-        col = c("darkgreen", "red","black","steelblue"),
-        xlab = "Time",
-        main = "",
-        lwd = 1
-        )
-legend("bottomright", c("OECD Weekly Tracker","WIFO WWWI", "Google DESI", "OENB Weekly Indicator"), col=c("darkgreen", "red","black","steelblue"), lty=c(1), xpd=TRUE, bty="b",cex=0.75
-       )
-```
-# Robustness MIDAS
-SIMPLE version!!! 
-
-
-MIDAS model cci (mod2)
-```{r} 
-cci_ts <- ts(cci$value, start=c(2006,1), end = c(2021,12), frequency = 12)
-gdp <- window(gdp_ts, end = c(2021, 3))
-cci <- window(cci_ts, end = c(2021, 9))
-
-#Midas regression
-midas1 <- midas_r(gdp ~ mls(gdp, 1, 1),start = NULL)
-
-summary(midas1)
-coef(midas1)
-
-acc_is_m1<-forecast::accuracy(gdp,midas1$fitted.values)
-
-#### forecasts:
-
-
-fcst_midas1 <- midasr::forecast(midas1, method = "static")
-fcst_midas1
-#acc_oos_m2 <- forecast::accuracy(fcst_midas2$mean,gdp)
-#plot(forecast1)
-
-#acc_modmid2 <- rbind(acc_is_m2,acc_oos_m2)
-
-```
-
-MIDAS model cci (mod2)
-```{r} 
-cci_ts <- ts(cci$value, start=c(2006,1), end = c(2021,12), frequency = 12)
-gdp <- window(gdp_ts, end = c(2021, 3))
-cci <- window(cci_ts, end = c(2021, 9))
-
-#Midas regression
-midas2 <- midas_r(gdp ~ mls(cci, 0, 3),start = NULL)
-
-summary(midas2)
-coef(midas2)
-
-acc_is_m2<-forecast::accuracy(gdp,midas2$fitted.values)
-
-#### forecasts:
-fcst_cci <-window(cci_ts, start = c(2021,10),end = c(2021, 12))
-
-fcst_cci <-as.data.frame(window(cci_ts, start = c(2021,10),end = c(2021, 12))) 
-colnames(fcst_cci)  <- c("cci") 
-
-fcst_midas2 <- midasr::forecast(midas2,newdata = fcst_cci, method = "static")
-fcst_midas2
-#acc_oos_m2 <- forecast::accuracy(fcst_midas2$mean,gdp)
-#plot(forecast1)
-
-#acc_modmid2 <- rbind(acc_is_m2,acc_oos_m2)
-
-```
-
-
-```{r}
-
-## MORE CORRECT VERSION WITH 91.30....days but forecast not possible..
+## MORE CORRECT VERSION WITH mlsd function 91.30 days but forecast not possible..
 google_ts <-ts(Google_AT_daily$value[1:5844], start=c(2006,1), frequency = 365.25)#31.12
-#gdp <- window(gdp_ts, end = c(2021, 3))
+
 google <- window(google_ts, end = c(2021, 274))
 google <- as.numeric(google)
-#google_ts[1:5752]
 
-y <- c(1:63)
+y <- c(1:length(google))
 datey <- (y-1)*3+1
-
-test <-mlsd(google, 0, datey)
-
 midas3 <- midas_r(gdp ~ mls(gdp, 1, 1) + mlsd(google, 0, datey),start = NULL)
 
-
 summary(midas3)
 coef(midas3)
 
 acc_is_m3<-forecast::accuracy(gdp,midas3$fitted.values)
 
-#### forecasts:
-
 ```
-```{r}
-#63*3 = 189 month
-#189month*30 = 5670 days (2021-07-10) (90n)
-
-#2021-09-11 bei 5733 (91)
-
-google_ts <-ts(Google_AT_daily$value[1:5844], start=c(2006,1), frequency = 365.25)#31.12
-#gdp <- window(gdp_ts, end = c(2021, 3))
-google <- window(google_ts, end = c(2021, 255))
-google <- as.numeric(google)
-#google_ts[1:5752]
-
-y <- c(1:63)
-datey <- (y-1)*3+1
-
-test <-mlsd(google, 0, datey)
-
-midas3 <- midas_r(gdp ~ mls(gdp, 1, 1) + mls(google, 0, 91),start = NULL)
-
-
-summary(midas3)
-coef(midas3)
-
-acc_is_m3<-forecast::accuracy(gdp,midas3$fitted.values)
-
-#### forecasts:
-
-
-#as.data.frame(Google_AT_daily$value[5753:5919])
-google_fcst <- as.data.frame(window(google_ts,start=c(2021, 256), end = c(2021, 347)))
-colnames(google_fcst)  <- c("google") 
-
-#1 quarter is 5752/62= 91.30159
-fcst_midas3 <- midasr::forecast(midas3,newdata =google_fcst , method = "dynamic")
-fcst_midas3
-```
-
-
-
-
-MIDAS model lag(gdp) + cci (mod4)
-
-```{r} 
-#cci_ts <- ts(cci$value, start=c(2006,1), end = c(2021,12), frequency = 12)
-#gdp <- window(gdp_ts, end = c(2021, 3))
-#cci <- window(cci_ts, end = c(2021, 9))
-
-#Midas regression
-midas4 <- midas_r(gdp ~ mls(gdp, 1, 1) + mls(cci, 0, 3), #same as lag(gdp)
-              start = NULL)
-
-summary(midas4)
-coef(midas4)
-
-acc_is_m4<-forecast::accuracy(gdp,midas4$fitted.values)
-
-#### forecasts:
-
-fcst_midas4 <- midasr::forecast(midas4,newdata = fcst_cci, method = "static")
-fcst_midas4
-
-```
-
-MIDAS model lag(gdp) + google (mod5)
-
-```{r} 
-#Midas regression
-midas5 <- midas_r(gdp ~ mls(gdp, 1, 1) + mls(google, 0, 91),start = NULL) #same as lag(gdp)
-
-
-summary(midas5)
-coef(midas5)
-
-acc_is_m5<-forecast::accuracy(gdp,midas5$fitted.values)
-
-#### forecasts:
-
-
-fcst_midas5 <- midasr::forecast(midas5,newdata = google_fcst, method = "static")
-fcst_midas5
-```
-
-
-MIDAS model lag(gdp) + google + cci (mod6)
-
-```{r} 
-
-#Midas regression
-midas6 <- midas_r(gdp ~ mls(gdp, 1, 1) + mls(cci, 0, 3) + mls(google, 0, 91), #same as lag(gdp)
-              start = NULL)
-
-summary(midas6)
-coef(midas6)
-
-acc_is_m6<-forecast::accuracy(gdp,midas6$fitted.values)
-
-#### forecasts:
-newdata <- list(cci_fcst,google_fcst)
-fcst_midas6 <- midasr::forecast(midas6,newdata = newdata, method = "static")
-fcst_midas6
-```
-
-
-MIDAS model cci+ google (mod7)
-
-```{r} 
-
-#Midas regression
-midas7 <- midas_r(gdp ~ mls(cci, 0, 3) + mls(google, 0, 91), #same as lag(gdp)
-              start = NULL)
-
-summary(midas7)
-coef(midas7)
-
-acc_is_m7<-forecast::accuracy(gdp,midas7$fitted.values)
-
-#### forecasts:
-
-fcst_midas7 <- midasr::forecast(midas7,newdata = newdata, method = "static")
-fcst_midas7$mean
-
-```
-### Summary Results MIDAS
-```{r}
-MIDAS <- rbind(acc_is_m2,acc_is_m3,acc_is_m4,acc_is_m5,acc_is_m6,acc_is_m7)
-
-rownames(MIDAS)  <- c("CCI", "DESI", "AR(1) & CCI","AR(1) & DESI", "AR(1) & CCI & DESI", "CCI & DESI") 
-
-                        
-print(xtable::xtable(MIDAS,caption="LOOCV results",label="LOOCVresults"),
-      sanitize.text.function=function(UR.table){UR.table},comment=FALSE)
-```
-
-
-
-
-
-
-
-
-
-
