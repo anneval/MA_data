@@ -144,6 +144,8 @@ ggplot(Google_AT_daily, aes(x=time, y=value)) +
   scale_x_date(date_labels="%b %y",date_breaks  ="24 month")
 ```
 
+
+
 # Comparison all data sources
 ```{r}
 ##### Abilene für comparison abbilden 
@@ -158,6 +160,40 @@ legend("bottomright", c("GDP growth", "DESI","CCI"), col=c("red","blue", "black"
        inset=c(0,1), xpd=TRUE, horiz=TRUE, bty="n"
        )
 ```
+# Comparison with CH and DE DESI
+
+```{r}
+Google_DE_daily <- read.csv("https://raw.githubusercontent.com/trendecon/data/master/data/de/trendecon_sa.csv")
+Google_CH_daily <- read.csv("https://raw.githubusercontent.com/trendecon/data/master/data/ch/trendecon_sa.csv")
+
+Google_DE_daily$time <- as.Date(Google_AT_daily$time)
+Google_CH_daily$time <- as.Date(Google_AT_daily$time)
+
+df <- cbind(Google_AT_daily$value,Google_DE_daily$value,Google_CH_daily$value)
+colnames(df) <- c("AT","DE","CH")
+cor_df <- cor(df)
+
+stargazer::stargazer(cor_df, title = "Correlation 3 different samples")
+
+
+google <- Google_AT_daily[,1:2]
+Google_AT_month <- ts_frequency(google, to = "month") %>% ts_xts() 
+Google_DE_month <- ts_frequency(Google_DE_daily, to = "month") %>% ts_xts() 
+Google_CH_month <- ts_frequency(Google_CH_daily, to = "month") %>% ts_xts() 
+
+op <- options(
+  tsbox.lwd = 1,
+  tsbox.col = c("red","blue", "black")
+)
+
+tsbox::ts_plot("DESI Austria" = Google_AT_month,"DESI Switzerland" = Google_CH_month,"DESI Germany" = Google_DE_month,ylab="Google DESI")
+    options(op)            
+               
+              
+```
+
+
+
 # Dataframes for later models:
 ```{r}
 Data_Var <- Data[,1:3]
