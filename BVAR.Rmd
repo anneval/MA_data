@@ -1,0 +1,569 @@
+---
+title: "Nowcasting GDP growth in Austria via the construction of a daily economic sentiment index using Google Trends"
+subtitle: "Masterthesis"
+author: "Anne Valder"
+date: "2/12/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+rm(list=ls())
+getwd()
+```
+
+
+# Load packages 
+
+```{r, include=FALSE}
+library(readr)
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(tseries)
+library(forecast)
+library(vars)
+library(GGally)
+library(Metrics)
+library(caret)
+library(collapse)
+library(urca)
+library(tsbox)
+library(lubridate)
+library(dygraphs)
+#library(macror) # for latex table adf 
+library(xtable) # latex table 
+library(midasr) # Mixed data sampling models
+```
+
+# Load all data (GDP, CCI, Goolge)
+```{r}
+# set uo Data Matrix
+t_0 <- as.Date("2006-01-01") #Setting start date for the series
+t_1 <- as.Date("2023-01-01") #Setting end date for the series
+t_2 <- as.Date("2023-03-01")
+Date_q <- seq.Date(t_0,t_1,by="quarter")
+Date_m <- seq.Date(t_0,t_2,by="month")
+
+bigT <- length(Date_q)
+M <- 6
+Data   <- matrix(NA,bigT,M)
+colnames(Data)  <- c("gdp", "cci", "google","gdp_ts", "cci_ts", "google_ts") 
+Data <- as.data.frame(Data)
+rownames(Data)  <- as.Date(Date_q)
+```
+
+### GDP
+```{r}
+# accessed last 11.02.2022
+#Source: https://data.oecd.org/gdp/quarterly-gdp.htm#indicator-chart
+#gdp <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/GDP_oecd.csv")[9:78,6:7]
+gdp <- read_csv("https://raw.githubusercontent.com/anneval/MA_data/main/RData/DP_LIVE_22062023141754411.csv")[10:78,6:7]
+
+
+colnames(gdp)[colnames(gdp) %in% c("TIME", "Value")] <- c("QDate", "value")
+gdp <- cbind(gdp,Date_q)
+#ts:
+gdp_ts <- ts(gdp$value, start=c(2006,1), end = c(2023,1), frequency = 4)
+
+Data[(Date_q%in%gdp$Date_q),1] <- gdp$value
+Data$gdp_ts <- ts(Data$gdp, start=c(2006,1), end = c(2023,1), frequency = 4)
+```
+
+### CCI
+```{r, include=FALSE}
+# accessed last 11.02.2022
+#Source: https://ec.europa.eu/info/business-economy-euro/indicators-statistics/economic-databases/business-and-consumer-surveys/download-business-and-consumer-survey-data/time-series_en#consumers
+
+cci <- read_csv2("https://raw.githubusercontent.com/anneval/MA_data/main/RData/CCI_mtly_neu.csv")[253:459,c(1,297)]
+
+colnames(cci)[colnames(cci) %in% c("...1", "CONS.AT.TOT.COF.BS.M")] <- c("time", "value")
+cci <- cbind(cci,Date_m)
+cci <- arrange(cci, Date_m)
+cci$Date_q <- as.yearqtr(cci$Date_m) 
+cci$Date_q <- as.Date(cci$Date_q)
+
+cci_qtrly <- cci %>% group_by(Date_q) %>%
+  summarise_all(mean)
+
+cci_qtrly_69 <- cci_qtrly[1:69,]
+#Data[(Date_q%in%cci_qtrly_63$Date_q),2] <- (cci_qtrly_63$value)
+Data[(Date_q%in%cci_qtrly$Date_q),2] <- cci_qtrly$value
+cci_ts <- ts(Data$cci, start=c(2006,1), end = c(2023,1), frequency = 4)
+
+```
+
+### Google
+```{r}
+#series gets updated daily via Github workflow
+Google_AT_daily <- read.csv("https://raw.githubusercontent.com/anneval/MA_data/main/raw/at/trendecon_sa.csv")
+
+# transform to quarterly
+Google_AT_daily$time <- as.Date(Google_AT_daily$time)
+Google_AT_daily <- arrange(Google_AT_daily, time)
+Google_AT_daily$Date_q <- as.yearqtr(Google_AT_daily$time)
+Google_AT_daily$Date_q <- as.Date(Google_AT_daily$Date_q)
+
+Google_AT_qtrly <- Google_AT_daily %>% group_by(Date_q) %>%
+  summarise_all(mean)
+
+Google_AT_qtrly_69 <- Google_AT_qtrly[1:69,]
+Data[(Date_q%in%Google_AT_qtrly_69$Date_q),3] <- (Google_AT_qtrly_69$value)
+google_ts <- ts(Data$google, start=c(2006,1), end = c(2023,1), frequency = 4)
+```
+
+
+
+################################## Bayesian VAR extension ###########################
+
+# different options/ packages: bvartools, bvar, BMR
+
+```{r}
+library(bvartools)
+
+data_ts <- cbind(gdp_ts,cci_ts,google_ts)
+
+plot(data_ts)
+
+```
+```{r}
+#To assist with the set-up of the model the gen_var function produces the inputs y and x for the estimator, where y is a matrix of dependent variables and x is the matrix of regressors for the model
+
+data <- gen_var(data_ts, p = 2, deterministic = "const")
+
+#model_with_priors <- add_priors(data,
+                               #coef = list(v_i = 0, v_i_det = 0),
+                               # sigma = list(df = 1, scale = .0001))
+
+y <- t(data$data$Y)
+x <- t(data$data$Z)
+
+
+#We calculate frequentist VAR estimates using the standard formula yx′(xx′)−1 to obtain a benchmark for the Bayesian estimator. The parameters are obtained by OLS:
+
+A_freq <- tcrossprod(y, x) %*% solve(tcrossprod(x)) # Calculate estimates
+round(A_freq, 3) # Round estimates and print
+   
+#And Σ is calculated by
+
+u_freq <- y - A_freq %*% x
+u_sigma_freq <- tcrossprod(u_freq) / (ncol(y) - nrow(x))
+round(u_sigma_freq, 2)
+   
+```
+
+
+### uninformative!!
+
+```{r}
+# Bayesian estimator: The following code is a Gibbs sampler for a simple VAR model with non-informative priors. First, we define some variables, which help in the set-up of the sampler:
+# Reset random number generator for reproducibility
+set.seed(1234567)
+
+iter <- 30000 # Number of iterations of the Gibbs sampler
+burnin <- 15000 # Number of burn-in draws
+store <- iter - burnin
+
+
+tt <- ncol(y) # Number of observations
+k <- nrow(y) # Number of endogenous variables
+m <- k * nrow(x) # Number of estimated coefficients
+
+# Set priors
+a_mu_prior <- matrix(0, m) # Vector of prior parameter means
+a_v_i_prior <- diag(1, m) # Inverse of the prior covariance matrix
+
+u_sigma_df_prior <- 6 # Prior degrees of freedom
+u_sigma_scale_prior <- diag(1, k) # Prior covariance matrix
+u_sigma_df_post <- tt + u_sigma_df_prior # Posterior degrees of freedom
+# Initial values, from OLS?? 
+u_sigma_i <- solve(u_sigma_freq)
+
+# Data containers for posterior draws
+draws_a <- matrix(NA, m, store)
+draws_sigma <- matrix(NA, k * k, store)
+
+# Start Gibbs sampler
+for (draw in 1:iter) {
+  # Draw conditional mean parameters
+  a <- post_normal(y, x, u_sigma_i, a_mu_prior, a_v_i_prior)
+
+  # Draw variance-covariance matrix
+  u <- y - matrix(a, k) %*% x # Obtain residuals
+  u_sigma_scale_post <- solve(u_sigma_scale_prior + tcrossprod(u))
+  u_sigma_i <- matrix(rWishart(1, u_sigma_df_post, u_sigma_scale_post)[,, 1], k)
+  u_sigma <- solve(u_sigma_i) # Invert Sigma_i to obtain Sigma
+
+  # Store draws
+  if (draw > burnin) {
+    draws_a[, draw - burnin] <- a
+    draws_sigma[, draw - burnin] <- u_sigma
+  }
+}
+#After the Gibbs sampler has finished, point estimates for the coefficient matrix can be obtained as, e.g., the mean of the posterior draws:
+A <- rowMeans(draws_a) # Obtain means for every row
+A <- matrix(A, k) # Transform mean vector into a matrix
+A <- round(A, 3) # Round values
+dimnames(A) <- list(dimnames(y)[[1]], dimnames(x)[[1]]) # Rename matrix dimensions
+
+A # Print
+
+# Point estimates for the covariance matrix can also be obtained by calculating the means of the posterior draws.
+Sigma <- rowMeans(draws_sigma) # Obtain means for every row
+Sigma <- matrix(Sigma, k) # Transform mean vector into a matrix
+Sigma <- round(Sigma, 2) # Round values
+dimnames(Sigma) <- list(dimnames(y)[[1]], dimnames(y)[[1]]) # Rename matrix dimensions
+
+Sigma # Print
+
+bvar_est <- bvar(y = data$data$Y, x = data$data$Z, A = draws_a[1:18,],
+                 C = draws_a[19:21, ], Sigma = draws_sigma)
+
+
+summary(bvar_est)
+plot(bvar_est)
+plot(bvar_est, type = "trace")
+
+
+bvar_pred <- predict(bvar_est, n.ahead = 10, new_d = rep(1, 10))
+
+plot(bvar_pred)
+
+
+```
+
+# build in version
+```{r}
+library(bvartools)
+#> Loading required package: coda
+
+# Load data
+data("e1")
+e1 <- diff(log(e1)) * 100
+
+# Reduce number of oberservations
+e1 <- window(e1, end = c(1978, 4))
+
+# Plot the series
+plot(e1)
+     
+ model <- gen_var(e1, p = 2, deterministic = "const",
+                 iterations = 5000, burnin = 1000)    
+     
+ model_with_priors <- add_priors(model,
+                                coef = list(v_i = 0, v_i_det = 0),
+                                sigma = list(df = 1, scale = .0001))    
+ 
+ 
+ 
+ bvar_est <- draw_posterior(model_with_priors)
+ summary(bvar_est)
+
+ 
+ plot(bvar_est)
+
+ 
+plot(bvar_est, type = "trace")
+#As expected for an algrotihm with uninformative priors the posterior means are fairly close to the results of the frequentist estimator, which can be obtaind in the following way: 
+
+bvar_est <- thin(bvar_est, thin = 10)
+bvar_pred <- predict(bvar_est, n.ahead = 10, new_d = rep(1, 10))
+
+```
+
+
+
+
+
+
+####
+```{r}
+data("e1") # Load the data
+e1 <- diff(log(e1)) # Calculate first-log-differences
+
+# Reduce number of oberservations
+e1 <- window(e1, end = c(1978, 4))
+
+e1 <- e1 * 100 # Rescale data
+
+plot(e1) # Plot the series
+
+data <- gen_var(e1, p = 2, deterministic = "const")
+
+y <- t(data$data$Y)
+x <- t(data$data$Z)
+
+# standard VAR
+A_freq <- tcrossprod(y, x) %*% solve(tcrossprod(x)) # Calculate estimates
+round(A_freq, 3) # Round estimates and print
+
+
+u_freq <- y - A_freq %*% x
+u_sigma_freq <- tcrossprod(u_freq) / (ncol(y) - nrow(x))
+round(u_sigma_freq, 2)
+
+# Reset random number generator for reproducibility
+set.seed(1234567)
+
+iter <- 30000 # Number of iterations of the Gibbs sampler
+burnin <- 15000 # Number of burn-in draws
+store <- iter - burnin
+
+tt <- ncol(y) # Number of observations
+k <- nrow(y) # Number of endogenous variables
+m <- k * nrow(x) # Number of estimated coefficients
+
+# Set priors
+a_mu_prior <- matrix(0, m) # Vector of prior parameter means
+a_v_i_prior <- diag(1, m) # Inverse of the prior covariance matrix, prior precisons
+
+# Priors for error variance-covariance matrix
+u_sigma_df_prior <- 6 # Prior degrees of freedom
+u_sigma_scale_prior <- diag(1, k) # Prior covariance matrix
+u_sigma_df_post <- tt + u_sigma_df_prior # Posterior degrees of freedom
+
+# Initial values
+u_sigma_i <- solve(u_sigma_freq)
+# Data containers for posterior draws
+draws_a <- matrix(NA, m, store)
+draws_sigma <- matrix(NA, k * k, store)
+
+# Start Gibbs sampler
+for (draw in 1:iter) {
+  # Draw conditional mean parameters
+  a <- post_normal(y, x, u_sigma_i, a_mu_prior, a_v_i_prior)
+
+  # Draw variance-covariance matrix
+  u <- y - matrix(a, k) %*% x # Obtain residuals
+  u_sigma_scale_post <- solve(u_sigma_scale_prior + tcrossprod(u))
+  u_sigma_i <- matrix(rWishart(1, u_sigma_df_post, u_sigma_scale_post)[,, 1], k)
+  u_sigma <- solve(u_sigma_i) # Invert Sigma_i to obtain Sigma
+
+  # Store draws
+  if (draw > burnin) {
+    draws_a[, draw - burnin] <- a
+    draws_sigma[, draw - burnin] <- u_sigma
+  }
+}
+
+A <- rowMeans(draws_a) # Obtain means for every row
+A <- matrix(A, k) # Transform mean vector into a matrix
+A <- round(A, 3) # Round values
+dimnames(A) <- list(dimnames(y)[[1]], dimnames(x)[[1]]) # Rename matrix dimensions
+
+A # Print
+
+Sigma <- rowMeans(draws_sigma) # Obtain means for every row
+Sigma <- matrix(Sigma, k) # Transform mean vector into a matrix
+Sigma <- round(Sigma, 2) # Round values
+dimnames(Sigma) <- list(dimnames(y)[[1]], dimnames(y)[[1]]) # Rename matrix dimensions
+
+Sigma # Print
+
+#The bvar function can be used to collect relevant output of the Gibbs sampler into a standardised object, which can be used by functions such as predict to obtain forecasts or irf for impulse respons analysis.
+bvar_est <- bvar(y = data$data$Y, x = data$data$Z, A = draws_a[1:18,],
+                 C = draws_a[19:21, ], Sigma = draws_sigma)
+
+
+summary(bvar_est)
+plot(bvar_est)
+
+
+```
+
+
+
+# Litterman (1986) and Doan, Litterman, and Sims (1984) propose a specific Gaussian prior for the parameters of a VAR model that is often referred to as the Minnesota prior or the Litterman prior. The original proposal shrinks the VAR estimates toward a multivariate random walk model. This practice has been found useful in forecasting many persistent economic time series. The proposal is to specify the prior mean and covariance matrix as follows:
+
+
+#In particular, the Minnesota prior assumes that each variable follows a random walk process, possibly with drift, and therefore consists of a normal prior on a set of parameters with fixed and known covariance matrix, which will be estimated with one of three techniques: Univariate AR, Diagonal VAR, or Full VAR.
+
+# VARs constitute a rather general approach to modelling multivariate time series. A critical drawback of those models in their standard form is their missing ability to describe contemporaneous relationships between the analysed variables. This becomes a central issue in the impulse response analysis for such models, where it is important to know the contemporaneous effects of a shock to the economy. Usually, researchers address this by using orthogonal impulse responses, where the correlation between the errors is obtained from the (lower) Cholesky decomposition of the error covariance matrix. This requires them to arrange the variables of the model in a suitable order. An alternative to this approach is to use so-called structural vector autoregressive (SVAR) models, where the relationship between contemporaneous variables is modelled more directly.  
+
+#To understand SVAR models, it is important to look more closely at the variance-covariance matrix . It contains the variances of the endogenous variable on its diagonal elements and covariances of the errors on the off-diagonal elements. The covariances contain information about contemporaneous effects each variable has on the others. The covariance matrices of standard VAR models is symmetric, i.e. the elements to the top-right of the diagonal (the “upper triangular”) mirror the elements to the bottom-left of the diagonal (the “lower triangular”). This reflects the idea that the relations between the endogenous variables only reflect correlations and do not allow to make statements about causal relationships.Contemporaneous causality or, more precisely, the structural relationships between the variables is analysed in the context of SVAR models, which impose special restrictions on the covariance matrix and – depending on the model – on other coefficient matrices as well. The drawback of this approach is that it depends on the more or less subjective assumptions made by the researcher. 
+
+# build in solution
+
+```{r}
+library(bvartools)
+#> Loading required package: coda
+
+# Load data
+data("e1")
+e1 <- diff(log(e1)) * 100
+
+# Reduce number of oberservations
+e1 <- window(e1, end = c(1978, 4))
+
+# Plot the series
+plot(e1)
+
+model <- gen_var(e1, p = 2, deterministic = "const",
+                 iterations = 5000, burnin = 1000)
+
+model_with_priors <- add_priors(model,
+                                coef = list(v_i = 0, v_i_det = 0),
+                                sigma = list(df = 1, scale = .0001))
+
+bvar_est <- draw_posterior(model_with_priors)
+#> Estimating model...
+plot(bvar_est)
+
+
+```
+
+################################## Bayesian VAR extension ###########################
+
+# packages: BVAR
+
+```{r}
+
+set.seed(42)
+library("BVAR")
+  
+x <- fred_qd[1:243, c("GDPC1", "PCECC96", "GPDIC1", "HOANBS", "GDPCTPI", "FEDFUNDS")]
+x <- fred_transform(x, codes = c(4, 4, 4, 4, 4, 1))
+
+
+# minesota prior
+
+mn <- bv_minnesota( lambda = bv_lambda(mode = 0.2, sd = 0.4, min = 0.0001, max = 5),alpha = bv_alpha(mode = 2), var = 1e07)
+soc <- bv_soc(mode = 1, sd = 1, min = 1e-04, max = 50)
+sur <- bv_sur(mode = 1, sd = 1, min = 1e-04, max = 50)
+
+
+priors <- bv_priors(hyper = "auto", mn = mn, soc = soc, sur = sur)
+
+mh <- bv_metropolis(scale_hess = c(0.05, 0.0001, 0.0001),adjust_acc = TRUE, acc_lower = 0.25, acc_upper = 0.45)
+ 
+run <- bvar(x, lags = 5, n_draw = 15000, n_burn = 5000, n_thin = 1,priors = priors, mh = mh, verbose = TRUE)
+print(run)
+plot(run)
+ plot(run, type = "dens",vars_response = "GDPC1", vars_impulse = "GDPC1-lag1")
+vcov(run)
+
+sqrt (mean ((residuals(run))^2))
+
+### forecasting
+predict(run) <- predict(run, horizon = 16, conf_bands = c(0.05, 0.16))
+
+plot(predict(run), area = TRUE, t_back = 32,vars = c("GDPC1", "GDPCTPI", "FEDFUNDS"))
+
+#sqrt (mean ((data$actual - data$predicted)^2))
+```
+
+
+
+```{r}
+# from https://www.rdocumentation.org/packages/BVAR/versions/1.0.4
+# Load the package
+library("BVAR")
+
+# Access a subset of the fred_qd dataset
+data <- fred_qd[, c("GDPC1", "CPIAUCSL", "UNRATE", "FEDFUNDS")]
+# Transform it to be stationary
+data <- fred_transform(data, codes = c(5, 5, 5, 1), lag = 4)
+
+# Estimate using default priors and MH step
+x <- bvar(data, lags = 1)
+
+
+# Check convergence via trace and density plots
+plot(x)
+
+# Calculate and store forecasts and impulse responses
+predict(x) <- predict(x, horizon = 20)
+irf(x) <- irf(x, horizon = 20, identification = TRUE)
+
+# Plot forecasts and impulse responses
+plot(predict(x))
+plot(irf(x))
+```
+
+
+```{r}
+Data <- Data[,1:3]
+
+#class(Data$google)
+
+x <- bvar(Data, lags = 2)
+print(x)
+plot(x)
+predict(x) <- predict(x, horizon = 20)
+irf(x) <- irf(x, horizon = 20, identification = TRUE)
+# Plot forecasts and impulse responses
+plot(predict(x))
+plot(irf(x))
+```
+
+```{r}
+
+set.seed(42)
+# minesota prior
+
+mn <- bv_minnesota( lambda = bv_lambda(mode = 0.2, sd = 0.4, min = 0.0001, max = 5),alpha = bv_alpha(mode = 2), var = 1e07)
+soc <- bv_soc(mode = 1, sd = 1, min = 1e-04, max = 50)
+sur <- bv_sur(mode = 1, sd = 1, min = 1e-04, max = 50)
+
+
+priors <- bv_priors(hyper = "auto", mn = mn, soc = soc, sur = sur)
+
+mh <- bv_metropolis(scale_hess = c(0.05, 0.0001, 0.0001),adjust_acc = TRUE, acc_lower = 0.25, acc_upper = 0.45)
+ 
+run <- bvar(Data, lags = 2, n_draw = 15000, n_burn = 5000, n_thin = 1,priors = priors, mh = mh, verbose = TRUE)
+print(run)
+plot(run)
+ plot(run, type = "dens",vars_response = "gdp", vars_impulse = "gdp-lag1")
+vcov(run)
+
+residuals(run)
+fitted <- fitted(run)
+
+### forecasting
+pred <- predict(run) <- predict(run, horizon = 4, conf_bands = c(0.05, 0.16))
+
+plot(predict(run), area = TRUE, t_back = 32,vars = c("gdp", "cci", "google"))
+
+```
+
+
+
+
+
+
+
+################################## Bayesian mixed frequncy VAR extension ###########################
+
+# packages: mfbvar
+
+```{r}
+library("mfbvar")
+library("dplyr") 
+library("ggplot2")
+library("alfred")
+
+variables <- c("CPIAUCSL", "UNRATE", "GDPC1")
+
+out <- lapply(variables, get_alfred_series, observation_start = "1980-01-01",observation_end = "2018-11-01",realtime_start = "2018-12-10",realtime_end = "2018-12-10")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
