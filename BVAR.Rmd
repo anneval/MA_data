@@ -38,6 +38,7 @@ library(dygraphs)
 #library(macror) # for latex table adf 
 library(xtable) # latex table 
 library(midasr) # Mixed data sampling models
+library(BVAR)
 ```
 
 # Load all data (GDP, CCI, Goolge)
@@ -119,6 +120,289 @@ google_ts <- ts(Data$google, start=c(2006,1), end = c(2023,1), frequency = 4)
 
 
 ################################## Bayesian VAR extension ###########################
+
+# packages: BVAR
+
+## less specified priors
+
+```{r}
+
+#class(Data$google)
+
+x <- bvar(Data, lags = 2)
+print(x)
+plot(x)
+predict(x) <- predict(x, horizon = 8)
+irf(x) <- irf(x, horizon = 20, identification = TRUE)
+# Plot forecasts and impulse responses
+plot(predict(x))
+plot(irf(x))
+```
+
+### more detailed 
+```{r}
+
+set.seed(42)
+Data <- Data[,1:3]
+
+# minesota prior
+
+mn <- bv_minnesota( lambda = bv_lambda(mode = 0.2, sd = 0.4, min = 0.0001, max = 5),alpha = bv_alpha(mode = 2), var = 1e07)
+soc <- bv_soc(mode = 1, sd = 1, min = 1e-04, max = 50)
+sur <- bv_sur(mode = 1, sd = 1, min = 1e-04, max = 50)
+
+
+priors <- bv_priors(hyper = "auto", mn = mn, soc = soc, sur = sur)
+
+mh <- bv_metropolis(scale_hess = c(0.05, 0.0001, 0.0001),adjust_acc = TRUE, acc_lower = 0.25, acc_upper = 0.45)
+ 
+run <- bvar(Data, lags = 2, n_draw = 15000, n_burn = 5000, n_thin = 1,priors = priors, mh = mh, verbose = TRUE)
+print(run)
+plot(run)
+ plot(run, type = "dens",vars_response = "gdp", vars_impulse = "gdp-lag1")
+vcov(run)
+
+# in sapmle RMSE
+
+resid <- residuals(run)
+resid_gdp <- resid[,1]
+resid_cci <- resid[,2]
+resid_google <- resid[,3]
+
+
+RMSE_in_BVAR_gd <-sqrt (mean (resid_gdp^2))
+RMSE_in_BVAR_cci <-sqrt (mean (resid_cci^2))
+RMSE_in_BVAR_go <-sqrt (mean (resid_google^2))
+RMSE_in_BVARall <-sqrt (mean (residuals(run)^2))
+
+
+
+#resid <-residuals(run)
+#fitted <- fitted(run)
+
+### forecasting
+pred  <- predict(run, horizon = 4, conf_bands = c(0.05, 0.16))
+
+summary(pred, vars = 1L)
+
+pred_fore <- c(0.33,-1.05,-0.10,0.12)
+pred_fore <- as.data.frame(pred_fore)
+
+acc_oos_VAR1 <-forecast::accuracy(Data$gdp,pred_fore$pred_fore) 
+
+
+summary(pred)
+test <- as.data.frame(pred$fcast)
+
+test <- as.data.frame(test)
+acc_oos_BVAR <-forecast::accuracy(Data$gdp,pred$fcst) 
+
+
+
+plot(pred)
+predict.bvar
+
+resid = resid(run,vars = "gdp")
+
+plot(predict(run), area = TRUE, t_back = 32,vars = c("gdp", "cci", "google"))
+
+coef(run)
+
+summary(run)
+
+
+
+#Note that these methods generally work by calculating quantiles from the posterior draws. The full
+posterior may be retrieved directly from the objects. The function str can be very helpful for this.
+
+
+beta - Numeric array with draws from the posterior of the VAR coefficients. Also see
+coef.bvar. 
+sigma - Numeric array with draws from the posterior of the variance-covariance matrix. Also
+see vcov.bvar.
+• hyper - Numeric matrix with draws from the posterior of the hierarchically treated hyperparameters.
+
+##  visiual mcmc 
+
+library(coda)
+
+run_mcmc <- as.mcmc(run, vars = "lambda")
+geweke.diag(run_mcmc)
+
+plot(run_mcmc)
+plot(run, type = "full", vars = "lambda")
+
+library(Metrics)
+
+
+```
+
+
+#### test 
+
+```{r}
+library(BVARverse)
+# NOT RUN {
+# Access a subset of the fred_qd dataset
+data <- fred_qd[, c("CPIAUCSL", "UNRATE", "FEDFUNDS")]
+# Transform it to be stationary
+data <- fred_transform(data, codes = c(5, 5, 1), lag = 4)
+
+# Estimate a BVAR using one lag, default settings and very few draws
+x <- bvar(data, lags = 1, n_draw = 1000L, n_burn = 200L, verbose = FALSE)
+
+# Create tidy tibbles from the outputs
+tidy(x)
+t <- tidy(irf(x))
+tidy(predict(x))
+# }
+aug <- augment(x)
+bv_ggplot(x)
+
+bv_ggplot(predict(x))
+
+set.seed(42)
+library("BVAR")
+  
+x <- fred_qd[1:243, c("GDPC1", "PCECC96", "GPDIC1", "HOANBS", "GDPCTPI", "FEDFUNDS")]
+x <- fred_transform(x, codes = c(4, 4, 4, 4, 4, 1))
+
+
+# minesota prior, rovide settings for the Minnesota prior to bv_priors
+## Essentially this prior imposes the hypothesis, that individual variables all follow random walk processes. This parsimonious specification typically performs well in forecasts of macroeconomic time series and is often used as a benchmark for evaluating accuracy (Kilian and Lütkepohl, 2017). The key parameter is  (lambda), which controls the tightness of the prior. The parameter  (alpha) governs variance decay with increasing lag order, while   (psi) controls the prior’s standard deviation on lags of variables other than the dependent. The Minnesota prior is often refined with additional priors, trying to minimise the importance of conditioning on initial observations. See bv_dummy for more information on such priors.
+bv_lambda(): Tightness of the Minnesota prior
+• bv_alpha(): Variance decay with increasing lag order
+• bv_psi(): Prior standard deviation on other lags
+
+
+mn <- bv_minnesota( lambda = bv_lambda(mode = 0.2, sd = 0.4, min = 0.0001, max = 5),alpha = bv_alpha(mode = 2), var = 1e07)
+soc <- bv_soc(mode = 1, sd = 1, min = 1e-04, max = 50)
+sur <- bv_sur(mode = 1, sd = 1, min = 1e-04, max = 50)
+
+#Function to provide priors and their parameters to bvar. Used for adjusting the parameters treated as hyperparameters, the Minnesota prior and adding various dummy priors through the ellipsis parameter. Note that treating   (psi) as a hyperparameter in a model with many variables may lead to very low acceptance rates and thus hinder convergence
+
+priors <- bv_priors(hyper = "auto", mn = mn, soc = soc, sur = sur)
+
+#Function to provide settings for the Metropolis-Hastings step in bvar. Options include scaling the inverse Hessian that is used to draw parameter proposals and automatic scaling to achieve certain acceptance rates.
+mh <- bv_metropolis(scale_hess = c(0.05, 0.0001, 0.0001),adjust_acc = TRUE, acc_lower = 0.25, acc_upper = 0.45)
+ 
+run <- bvar(x, lags = 5, n_draw = 15000, n_burn = 5000, n_thin = 1,priors = priors, mh = mh, verbose = TRUE)
+print(run)
+plot(run)
+ plot(run, type = "dens",vars_response = "GDPC1", vars_impulse = "GDPC1-lag1")
+vcov(run)
+coef(run, type = "mean",c(0.01, 0.95))
+
+### forecasting
+predict(run) <- predict(run, horizon = 1, conf_bands = c(0.05, 0.16))
+
+plot(predict(run), area = TRUE, t_back = 32,vars = c("GDPC1", "GDPCTPI", "FEDFUNDS"))
+residuals(run)
+fitted(run, conf_bands = 0.10)
+resid(x, vars = 1)
+#sqrt (mean ((data$actual - data$predicted)^2))
+density(run)
+plot(density(run))
+#density(run, vars_response = "cci")
+
+plot(density(run, vars_impulse = 1))
+
+plot(residuals(run))
+plot(fitted(run))
+
+#Impulse response and forecast error methods for Bayesian VARs
+## Retrieves / calculates impulse response functions (IRFs) and/or forecast error variance decompositions(FEVDs) for Bayesian VARs generated via bvar. If the object is already present and nosettings are supplied it is simply retrieved, otherwise it will be calculated ex-post. Note that FEVDs require the presence / calculation of IRFs.
+
+irf(run)
+plot(irf(run))
+
+fevd(run)
+plot(fevd(run))
+summary(irf(run))
+
+
+logLik(run)
+
+#### ploting
+#Method to plot trace and densities of coefficient, hyperparameter and marginal likelihood draws
+#obtained from bvar. Several types of plot are available via the argument type, including traces,
+#densities, plots of forecasts and impulse responses.
+
+plot(run, type= c("density"))
+plot(run, "trace", "ml")
+plot(run, type = "irf", vars_response = 2)
+plot(run, type = "fcast", vars = 2)
+
+plot(predict(run))
+plot(predict(run, conf_bands = 0.25), orientation = "h")
+plot(predict(run), col = "transparent", area = TRUE)
+
+summary(predict(run))
+```
+
+
+
+```{r}
+# from https://www.rdocumentation.org/packages/BVAR/versions/1.0.4
+# Load the package
+library("BVAR")
+
+# Access a subset of the fred_qd dataset
+data <- fred_qd[, c("GDPC1", "CPIAUCSL", "UNRATE", "FEDFUNDS")]
+# Transform it to be stationary
+data <- fred_transform(data, codes = c(5, 5, 5, 1), lag = 4)
+
+# Estimate using default priors and MH step
+x <- bvar(data, lags = 1)
+
+
+# Check convergence via trace and density plots
+plot(x)
+
+# Calculate and store forecasts and impulse responses
+predict(x) <- predict(x, horizon = 20)
+irf(x) <- irf(x, horizon = 20, identification = TRUE)
+
+# Plot forecasts and impulse responses
+plot(predict(x))
+plot(irf(x))
+
+
+```
+
+
+
+
+
+################################## Bayesian mixed frequncy VAR extension ###########################
+
+# packages: mfbvar
+
+```{r}
+library("devtools")
+library("mfbvar")
+library("dplyr") 
+library("ggplot2")
+library("alfred")
+
+devtools::install_github("ankargren/mfbvar")
+
+variables <- c("CPIAUCSL", "UNRATE", "GDPC1")
+
+out <- lapply(variables, get_alfred_series, observation_start = "1980-01-01",observation_end = "2018-11-01",realtime_start = "2018-12-10",realtime_end = "2018-12-10")
+
+
+```
+# Litterman (1986) and Doan, Litterman, and Sims (1984) propose a specific Gaussian prior for the parameters of a VAR model that is often referred to as the Minnesota prior or the Litterman prior. The original proposal shrinks the VAR estimates toward a multivariate random walk model. This practice has been found useful in forecasting many persistent economic time series. The proposal is to specify the prior mean and covariance matrix as follows:
+
+
+#In particular, the Minnesota prior assumes that each variable follows a random walk process, possibly with drift, and therefore consists of a normal prior on a set of parameters with fixed and known covariance matrix, which will be estimated with one of three techniques: Univariate AR, Diagonal VAR, or Full VAR.
+
+# VARs constitute a rather general approach to modelling multivariate time series. A critical drawback of those models in their standard form is their missing ability to describe contemporaneous relationships between the analysed variables. This becomes a central issue in the impulse response analysis for such models, where it is important to know the contemporaneous effects of a shock to the economy. Usually, researchers address this by using orthogonal impulse responses, where the correlation between the errors is obtained from the (lower) Cholesky decomposition of the error covariance matrix. This requires them to arrange the variables of the model in a suitable order. An alternative to this approach is to use so-called structural vector autoregressive (SVAR) models, where the relationship between contemporaneous variables is modelled more directly.  
+
+#To understand SVAR models, it is important to look more closely at the variance-covariance matrix . It contains the variances of the endogenous variable on its diagonal elements and covariances of the errors on the off-diagonal elements. The covariances contain information about contemporaneous effects each variable has on the others. The covariance matrices of standard VAR models is symmetric, i.e. the elements to the top-right of the diagonal (the “upper triangular”) mirror the elements to the bottom-left of the diagonal (the “lower triangular”). This reflects the idea that the relations between the endogenous variables only reflect correlations and do not allow to make statements about causal relationships.Contemporaneous causality or, more precisely, the structural relationships between the variables is analysed in the context of SVAR models, which impose special restrictions on the covariance matrix and – depending on the model – on other coefficient matrices as well. The drawback of this approach is that it depends on the more or less subjective assumptions made by the researcher. 
+
+# OLD:
 
 # different options/ packages: bvartools, bvar, BMR
 
@@ -377,14 +661,7 @@ plot(bvar_est)
 
 
 
-# Litterman (1986) and Doan, Litterman, and Sims (1984) propose a specific Gaussian prior for the parameters of a VAR model that is often referred to as the Minnesota prior or the Litterman prior. The original proposal shrinks the VAR estimates toward a multivariate random walk model. This practice has been found useful in forecasting many persistent economic time series. The proposal is to specify the prior mean and covariance matrix as follows:
 
-
-#In particular, the Minnesota prior assumes that each variable follows a random walk process, possibly with drift, and therefore consists of a normal prior on a set of parameters with fixed and known covariance matrix, which will be estimated with one of three techniques: Univariate AR, Diagonal VAR, or Full VAR.
-
-# VARs constitute a rather general approach to modelling multivariate time series. A critical drawback of those models in their standard form is their missing ability to describe contemporaneous relationships between the analysed variables. This becomes a central issue in the impulse response analysis for such models, where it is important to know the contemporaneous effects of a shock to the economy. Usually, researchers address this by using orthogonal impulse responses, where the correlation between the errors is obtained from the (lower) Cholesky decomposition of the error covariance matrix. This requires them to arrange the variables of the model in a suitable order. An alternative to this approach is to use so-called structural vector autoregressive (SVAR) models, where the relationship between contemporaneous variables is modelled more directly.  
-
-#To understand SVAR models, it is important to look more closely at the variance-covariance matrix . It contains the variances of the endogenous variable on its diagonal elements and covariances of the errors on the off-diagonal elements. The covariances contain information about contemporaneous effects each variable has on the others. The covariance matrices of standard VAR models is symmetric, i.e. the elements to the top-right of the diagonal (the “upper triangular”) mirror the elements to the bottom-left of the diagonal (the “lower triangular”). This reflects the idea that the relations between the endogenous variables only reflect correlations and do not allow to make statements about causal relationships.Contemporaneous causality or, more precisely, the structural relationships between the variables is analysed in the context of SVAR models, which impose special restrictions on the covariance matrix and – depending on the model – on other coefficient matrices as well. The drawback of this approach is that it depends on the more or less subjective assumptions made by the researcher. 
 
 # build in solution
 
@@ -415,142 +692,6 @@ plot(bvar_est)
 
 
 ```
-
-################################## Bayesian VAR extension ###########################
-
-# packages: BVAR
-
-```{r}
-
-set.seed(42)
-library("BVAR")
-  
-x <- fred_qd[1:243, c("GDPC1", "PCECC96", "GPDIC1", "HOANBS", "GDPCTPI", "FEDFUNDS")]
-x <- fred_transform(x, codes = c(4, 4, 4, 4, 4, 1))
-
-
-# minesota prior
-
-mn <- bv_minnesota( lambda = bv_lambda(mode = 0.2, sd = 0.4, min = 0.0001, max = 5),alpha = bv_alpha(mode = 2), var = 1e07)
-soc <- bv_soc(mode = 1, sd = 1, min = 1e-04, max = 50)
-sur <- bv_sur(mode = 1, sd = 1, min = 1e-04, max = 50)
-
-
-priors <- bv_priors(hyper = "auto", mn = mn, soc = soc, sur = sur)
-
-mh <- bv_metropolis(scale_hess = c(0.05, 0.0001, 0.0001),adjust_acc = TRUE, acc_lower = 0.25, acc_upper = 0.45)
- 
-run <- bvar(x, lags = 5, n_draw = 15000, n_burn = 5000, n_thin = 1,priors = priors, mh = mh, verbose = TRUE)
-print(run)
-plot(run)
- plot(run, type = "dens",vars_response = "GDPC1", vars_impulse = "GDPC1-lag1")
-vcov(run)
-
-sqrt (mean ((residuals(run))^2))
-
-### forecasting
-predict(run) <- predict(run, horizon = 16, conf_bands = c(0.05, 0.16))
-
-plot(predict(run), area = TRUE, t_back = 32,vars = c("GDPC1", "GDPCTPI", "FEDFUNDS"))
-
-#sqrt (mean ((data$actual - data$predicted)^2))
-```
-
-
-
-```{r}
-# from https://www.rdocumentation.org/packages/BVAR/versions/1.0.4
-# Load the package
-library("BVAR")
-
-# Access a subset of the fred_qd dataset
-data <- fred_qd[, c("GDPC1", "CPIAUCSL", "UNRATE", "FEDFUNDS")]
-# Transform it to be stationary
-data <- fred_transform(data, codes = c(5, 5, 5, 1), lag = 4)
-
-# Estimate using default priors and MH step
-x <- bvar(data, lags = 1)
-
-
-# Check convergence via trace and density plots
-plot(x)
-
-# Calculate and store forecasts and impulse responses
-predict(x) <- predict(x, horizon = 20)
-irf(x) <- irf(x, horizon = 20, identification = TRUE)
-
-# Plot forecasts and impulse responses
-plot(predict(x))
-plot(irf(x))
-```
-
-
-```{r}
-Data <- Data[,1:3]
-
-#class(Data$google)
-
-x <- bvar(Data, lags = 2)
-print(x)
-plot(x)
-predict(x) <- predict(x, horizon = 20)
-irf(x) <- irf(x, horizon = 20, identification = TRUE)
-# Plot forecasts and impulse responses
-plot(predict(x))
-plot(irf(x))
-```
-
-```{r}
-
-set.seed(42)
-# minesota prior
-
-mn <- bv_minnesota( lambda = bv_lambda(mode = 0.2, sd = 0.4, min = 0.0001, max = 5),alpha = bv_alpha(mode = 2), var = 1e07)
-soc <- bv_soc(mode = 1, sd = 1, min = 1e-04, max = 50)
-sur <- bv_sur(mode = 1, sd = 1, min = 1e-04, max = 50)
-
-
-priors <- bv_priors(hyper = "auto", mn = mn, soc = soc, sur = sur)
-
-mh <- bv_metropolis(scale_hess = c(0.05, 0.0001, 0.0001),adjust_acc = TRUE, acc_lower = 0.25, acc_upper = 0.45)
- 
-run <- bvar(Data, lags = 2, n_draw = 15000, n_burn = 5000, n_thin = 1,priors = priors, mh = mh, verbose = TRUE)
-print(run)
-plot(run)
- plot(run, type = "dens",vars_response = "gdp", vars_impulse = "gdp-lag1")
-vcov(run)
-
-residuals(run)
-fitted <- fitted(run)
-
-### forecasting
-pred <- predict(run) <- predict(run, horizon = 4, conf_bands = c(0.05, 0.16))
-
-plot(predict(run), area = TRUE, t_back = 32,vars = c("gdp", "cci", "google"))
-
-```
-
-
-
-
-
-
-
-################################## Bayesian mixed frequncy VAR extension ###########################
-
-# packages: mfbvar
-
-```{r}
-library("mfbvar")
-library("dplyr") 
-library("ggplot2")
-library("alfred")
-
-variables <- c("CPIAUCSL", "UNRATE", "GDPC1")
-
-out <- lapply(variables, get_alfred_series, observation_start = "1980-01-01",observation_end = "2018-11-01",realtime_start = "2018-12-10",realtime_end = "2018-12-10")
-
-
 
 
 

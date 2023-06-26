@@ -627,11 +627,13 @@ lag_VAR1 <- fit_VAR1$selection[1]
 #lag_VAR1 
 
 VAR1_est <- vars::VAR(y = Data[,1:3], p = lag_VAR1,type = "const")
+VAR1_est <- vars::VAR(y = Data[,1:3], p = 2,type = "const")
+
 summary(VAR1_est$varresult$gdp)
 acc_is_VAR1 <- forecast::accuracy(VAR1_est$varresult$gdp) # IS accuracy
 stargazer::stargazer(acc_is_VAR1)
 
-forecast_VAR1<- predict(VAR1_est,n.ahead =3)  
+forecast_VAR1<- predict(VAR1_est,n.ahead =4)  
 forecast_VAR1
 
 df_fcst <- as.data.frame(forecast_VAR1$fcst$google)
@@ -721,14 +723,14 @@ Data_Var <- cbind(Data[,1:3],Data_Var)
 
 model= gdp ~ L1.gdp +L2.gdp + L1.cci +L2.cci +L1.google + L2.google
 
-expanding_VAR2 <- expanding_window_OLS(Data_Var[3:69,], dep_var, start = 19) 
+expanding_VAR2 <- expanding_window_OLS(Data_Var[3:69,], dep_var, start = 20) 
 #predictions
 pred_VAR2 <- do.call(rbind.data.frame, expanding_VAR2[[2]])  
 colnames(pred_VAR2) <- c("value")
 Date_q_pred <- Date_q[21:69]
 
 pred_VAR2 <- as.ts(pred_VAR2, start=c(2011,1), end = c(2023,1), frequency = 4)
-
+plot(pred_VAR2)
 ### error in and OOS 
 error_VAR2 <- expanding_VAR2[[4]]
 error_VAR2 <-error_VAR2[!is.na(error_VAR2)]
