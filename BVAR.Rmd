@@ -141,8 +141,7 @@ plot(irf(x))
 
 ### more detailed 
 ```{r}
-
-set.seed(42)
+set.seed(123)
 Data <- Data[,1:3]
 
 # minesota prior
@@ -155,13 +154,18 @@ sur <- bv_sur(mode = 1, sd = 1, min = 1e-04, max = 50)
 priors <- bv_priors(hyper = "auto", mn = mn, soc = soc, sur = sur)
 
 mh <- bv_metropolis(scale_hess = c(0.05, 0.0001, 0.0001),adjust_acc = TRUE, acc_lower = 0.25, acc_upper = 0.45)
- 
+
 run <- bvar(Data, lags = 2, n_draw = 15000, n_burn = 5000, n_thin = 1,priors = priors, mh = mh, verbose = TRUE)
+
+
+
 print(run)
 plot(run)
- plot(run, type = "dens",vars_response = "gdp", vars_impulse = "gdp-lag1")
+ plot(run, type = "dens",vars_response = "gdp")
+      #, vars_impulse = "gdp-lag1")
 vcov(run)
-
+stargazer::stargazer(coef(run)) 
+coef(run)
 # in sapmle RMSE
 
 resid <- residuals(run)
@@ -170,26 +174,42 @@ resid_cci <- resid[,2]
 resid_google <- resid[,3]
 
 
+
 RMSE_in_BVAR_gd <-sqrt (mean (resid_gdp^2))
 RMSE_in_BVAR_cci <-sqrt (mean (resid_cci^2))
 RMSE_in_BVAR_go <-sqrt (mean (resid_google^2))
 RMSE_in_BVARall <-sqrt (mean (residuals(run)^2))
 
+# LOG predictive density
 
+#density(run)
+#plot(density(run))
+#plot(run$beta)
+#x <- density(run) # so nur densities von hypermparameters 
+x <-density(run, vars_response = "gdp")
+plot(x)
 
-#resid <-residuals(run)
-#fitted <- fitted(run)
+#M = 10000 # number of samples
+
+#(1/M)*sum(log(x$gdp_constant$y))
+
 
 ### forecasting
+#resid <-residuals(run)
+#fitted <- fitted(run)
 pred  <- predict(run, horizon = 4, conf_bands = c(0.05, 0.16))
 
-summary(pred, vars = 1L)
+#l <- log(pred)
 
-pred_fore <- c(0.33,-1.05,-0.10,0.12)
+
+summary(pred, vars = 1L)
+summary(pred)
+
+
+pred_fore <- c(0.29,-1.06,-0.07,0.12)
 pred_fore <- as.data.frame(pred_fore)
 
 acc_oos_VAR1 <-forecast::accuracy(Data$gdp,pred_fore$pred_fore) 
-
 
 summary(pred)
 test <- as.data.frame(pred$fcast)
@@ -199,8 +219,9 @@ acc_oos_BVAR <-forecast::accuracy(Data$gdp,pred$fcst)
 
 
 
+#x$gdp_constant
+
 plot(pred)
-predict.bvar
 
 resid = resid(run,vars = "gdp")
 
@@ -209,9 +230,10 @@ plot(predict(run), area = TRUE, t_back = 32,vars = c("gdp", "cci", "google"))
 coef(run)
 
 summary(run)
+```
 
 
-
+```{r}
 #Note that these methods generally work by calculating quantiles from the posterior draws. The full
 posterior may be retrieved directly from the objects. The function str can be very helpful for this.
 
@@ -230,10 +252,88 @@ run_mcmc <- as.mcmc(run, vars = "lambda")
 geweke.diag(run_mcmc)
 
 plot(run_mcmc)
-plot(run, type = "full", vars = "lambda")
+plot(run, type = "full", vars = "gdp")
 
-library(Metrics)
+#l <- log(run$beta)
+#lppd <- (1/M)*sum(run$beta)
 
+#sum(log(pred$fcast))
+
+#plot(density(run$beta))
+
+#plot(density(pred$fcast))
+ #dens <- density(pred$fcast)
+#dens <- dens[["y"]]
+#ldens <- log(dens)
+#sldens <- sum(ldens)
+
+#log(lppd)
+#library(BMS)
+#class(x)
+#lps.bma()
+
+vcov(run)
+coef(run)
+tidy <- tidy(run,vars_response = "gdp")
+augment <- augment(run)
+augmentpred <- augment(pred)
+```
+
+
+```{r}
+n <- 1:67# n = length of test data
+d = 10000 #draws
+
+# SigmaSq = Error variance draws # has dimension of (1 X d) 
+# PredictiveDensity = X.beta draws # has dimension of (n x d)
+coef(run)
+vcov(run)
+SigmaSq <- as_tibble(run$sigma)
+SigmaSq <- SigmaSq[,1]
+beta <- as_tibble(run$beta)
+beta <- beta[,1:7]
+#denb <- density(run$beta)
+
+#beta$mean <- rowMeans(beta)
+
+class(beta$V1)
+#PredictiveDensity <- as.matrix(67*10000)
+#plot(density(pred$fcast))
+#predtab <- as_tibble(pred$fcast)
+#density(predtab$V1)
+
+scores <- matrix(0, nrow = length(n), ncol = dim(beta)[2]) # create an empty matrix for log-predictive scores
+
+for(obs in 1:length(n)){ # for each observation
+  for(draw in 1:dim(beta)[2]){    # for each draw
+    scores[obs,draw] <- dnorm(Data[3:69,1][obs], mean = beta[obs,draw], sd = sqrt(SigmaSq[draw]))
+  }  
+}
+lps <- -sum(log(rowMeans(scores)))/ length(n)
+
+
+library(bvarsv)
+## Not run: 
+
+# Load US macro data
+data(usmacro)
+
+# Estimate trivariate BVAR using default settings
+set.seed(5813)
+bv <- bvar.sv.tvp(usmacro)
+
+# Construct predictive density function for the second variable (inflation), one period ahead
+f <- predictive.density(bv, v = 2, h = 1)
+
+# Plot the density for a grid of values
+grid <- seq(-2, 5, by = 0.05)
+plot(x = grid, y = f(grid), type = "l")
+
+# Cross-check: Extract MCMC sample for the same variable and horizon
+smp <- predictive.draws(bv, v = 2, h = 1)
+
+# Add density estimate to plot
+lines(density(smp), col = "green")
 
 ```
 
@@ -242,6 +342,7 @@ library(Metrics)
 
 ```{r}
 library(BVARverse)
+
 # NOT RUN {
 # Access a subset of the fred_qd dataset
 data <- fred_qd[, c("CPIAUCSL", "UNRATE", "FEDFUNDS")]
@@ -308,7 +409,7 @@ plot(density(run))
 plot(density(run, vars_impulse = 1))
 
 plot(residuals(run))
-plot(fitted(run))
+#plot(fitted(run))
 
 #Impulse response and forecast error methods for Bayesian VARs
 ## Retrieves / calculates impulse response functions (IRFs) and/or forecast error variance decompositions(FEVDs) for Bayesian VARs generated via bvar. If the object is already present and nosettings are supplied it is simply retrieved, otherwise it will be calculated ex-post. Note that FEVDs require the presence / calculation of IRFs.
@@ -338,7 +439,33 @@ plot(predict(run, conf_bands = 0.25), orientation = "h")
 plot(predict(run), col = "transparent", area = TRUE)
 
 summary(predict(run))
+
+coef(run)
+summary(run)
+
+stargazer::stargazer(coef(run))
+
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

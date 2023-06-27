@@ -629,14 +629,18 @@ lag_VAR1 <- fit_VAR1$selection[1]
 VAR1_est <- vars::VAR(y = Data[,1:3], p = lag_VAR1,type = "const")
 VAR1_est <- vars::VAR(y = Data[,1:3], p = 2,type = "const")
 
+summary(VAR1_est)
+
 summary(VAR1_est$varresult$gdp)
+stargazer::stargazer(summary(x))
+
 acc_is_VAR1 <- forecast::accuracy(VAR1_est$varresult$gdp) # IS accuracy
 stargazer::stargazer(acc_is_VAR1)
 
 forecast_VAR1<- predict(VAR1_est,n.ahead =4)  
 forecast_VAR1
 
-df_fcst <- as.data.frame(forecast_VAR1$fcst$google)
+df_fcst <- as.data.frame(forecast_VAR1$fcst$gdp)#google
 stargazer::stargazer(df_fcst,summary = FALSE)
 ###### OOS accuracy
 acc_oos_VAR1 <-forecast::accuracy(Data$gdp,forecast_VAR1$fcst$gdp) 
@@ -1178,12 +1182,12 @@ fcst_midas7$mean
 ### Summary Results MIDAS
 
 ```{r}
-MIDAS <- rbind(acc_is_m2,acc_is_m3,acc_is_m4,acc_is_m5,acc_is_m6,acc_is_m7)
+MIDAS <- rbind(acc_is_m1,acc_is_m2,acc_is_m3,acc_is_m4,acc_is_m5,acc_is_m6,acc_is_m7)
 
-rownames(MIDAS)  <- c("CCI", "DESI", "AR(1) & CCI","AR(1) & DESI", "AR(1) & CCI & DESI", "CCI & DESI") 
+rownames(MIDAS)  <- c("AR(1)","CCI", "DESI", "AR(1) & CCI","AR(1) & DESI", "AR(1) & CCI & DESI", "CCI & DESI") 
 
                         
-print(xtable::xtable(MIDAS,caption="LOOCV results",label="LOOCVresults"),
+print(xtable::xtable(MIDAS,caption="MIDAS results",label="MIDASresults"),
       sanitize.text.function=function(UR.table){UR.table},comment=FALSE)
 ```
 
